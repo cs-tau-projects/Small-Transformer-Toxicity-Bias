@@ -12,6 +12,7 @@ venv/
 data/
 models/
 checkpoints/
+.hf_cache/
 *.bin
 *.pt
 *.pth

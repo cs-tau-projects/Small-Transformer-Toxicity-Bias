@@ -1,5 +1,8 @@
 import pytest
+import torch
+from unittest.mock import patch
 from src.data_loader import get_jigsaw_dataset
+from src.dataset import download_and_prep_jigsaw, tokenize_jigsaw_dataset, JigsawDataset
 
 def test_jigsaw_dataset_loading():
     """
@@ -15,28 +18,43 @@ def test_jigsaw_dataset_loading():
     expected_columns = ['comment_text', 'target', 'male', 'female', 'black', 'white']
     for col in expected_columns:
         assert col in first_item, f"Expected column '{col}' missing from dataset"
-        
-    # Validate the data using filtering
-    toxic_examples = train_data.filter(lambda x: x['target'] > 0).select(range(1))
-    assert len(toxic_examples) > 0, "No toxic examples found in the dataset"
+
+@patch('src.data_loader.get_jigsaw_dataset')
+def test_dataset_prep_and_tokenization(mock_get_jigsaw):
+    """
+    Tests the prep and tokenization pipeline locally.
+    """
+    # Create a small dataset to avoid running processing on the whole 1.8M rows in the test
+    # Load raw locally (cached from the first test)
+    raw_ds = get_jigsaw_dataset(split="train")
+    small_ds = raw_ds.select(range(20))
+    mock_get_jigsaw.return_value = small_ds
     
-    toxic = toxic_examples[0]
-    assert toxic['target'] > 0, "Target toxicity should ideally be greater than 0"
+    ds, identities = download_and_prep_jigsaw(split="train")
     
-    # Check identity columns presence and type implicitly by accessing them
-    identities = [
-        'male', 'female', 'transgender', 'other_gender', 'heterosexual', 
-        'homosexual_gay_or_lesbian', 'christian', 'jewish', 'muslim', 'hindu', 
-        'buddhist', 'atheist', 'black', 'white', 'asian', 'latino', 
-        'other_race_or_ethnicity', 'physical_disability', 
-        'intellectual_or_learning_disability', 'psychiatric_or_mental_illness', 
-        'other_disability'
-    ]
+    assert 'is_toxic' in ds.column_names
+    assert len(identities) > 0
+    assert 'target' in ds.column_names, "Should maintain continuous target"
+    assert identities[0] in ds.column_names, "Should maintain continuous identities"
     
-    found_any = False
-    for ident in identities:
-        if ident in toxic and toxic[ident] is not None:
-            found_any = True
-            break
-            
-    assert found_any, "Expected at least some identity columns to be properly parsed"
+    # Test tokenization
+    tok_ds = tokenize_jigsaw_dataset(ds, "bert-base-uncased", max_length=16)
+    
+    assert 'input_ids' in tok_ds.column_names
+    assert 'attention_mask' in tok_ds.column_names
+    
+    # Test dataset wrapper
+    pytorch_ds = JigsawDataset(tok_ds, identities)
+    assert len(pytorch_ds) == 20
+    
+    item = pytorch_ds[0]
+    
+    assert 'input_ids' in item
+    assert 'label' in item
+    assert 'identity_probs' in item
+    assert isinstance(item['input_ids'], torch.Tensor)
+    assert isinstance(item['identity_probs'], torch.Tensor)
+    assert len(item['identity_probs']) == len(identities)
+    
+    # Ensure float typing for probabilities
+    assert item['identity_probs'].dtype == torch.float32

@@ -1,4 +1,3 @@
-import pandas as pd
 import torch
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer
@@ -11,81 +10,94 @@ ALL_IDENTITY_COLUMNS = [
     "physical_disability", "psychiatric_or_mental_illness", "transgender", "white"
 ]
 
-def download_and_prep_jigsaw(split='train', threshold=0.5):
+def download_and_prep_jigsaw(split='train', threshold=0.5, cache_dir=None):
     """
     Downloads the Jigsaw Unintended Bias dataset and prepares it for standard toxicity classification.
-    Converts continuous toxicity and identity targets to binary indicators based on the threshold.
+    Maintains continuous identity values for subgroup AUC calculation instead of binarizing.
     """
     from .data_loader import get_jigsaw_dataset
     print(f"Loading split '{split}' of Jigsaw Unintended Bias dataset...")
     try:
         # Load from HuggingFace via custom loader
-        ds = get_jigsaw_dataset(split)
+        ds = get_jigsaw_dataset(split, cache_dir=cache_dir)
     except Exception as e:
         print(f"Failed to load dataset. Error: {e}")
         raise e
 
-    # Convert to pandas for easier vectorized manipulation
-    df = ds.to_pandas()
-    
-    # Binarize the toxicity target
-    df['is_toxic'] = (df['target'] >= threshold).astype(int)
-    
-    # Binarize identity columns, handling existing nans by filling with 0
-    # Dynamically keep identities that actually exist in the dataframe
-    kept_identities = []
-    for col in ALL_IDENTITY_COLUMNS:
-        if col in df.columns:
-            df[col] = (df[col].fillna(0) >= threshold).astype(int)
-            kept_identities.append(col)
+    # Discover dynamically which identity columns were kept
+    kept_identities = [col for col in ALL_IDENTITY_COLUMNS if col in ds.column_names]
+
+    # Process directly using Arrow rather than Pandas
+    def process_batch(examples):
+        # Binarize toxicity target
+        is_toxic_batch = [int((target or 0) >= threshold) for target in examples['target']]
+        
+        # Keep identities as continuous, fill nas with 0.0
+        result = {'is_toxic': is_toxic_batch}
+        for col in kept_identities:
+            result[col] = [float(val or 0.0) for val in examples[col]]
             
+        return result
+
+    print("Processing targets and identities (memory-mapped)...")
+    ds = ds.map(
+        process_batch, 
+        batched=True,
+        desc="Processing targets and identities"
+    )
+
     # Subselect columns to save memory
     keep_cols = ['id', 'comment_text', 'target', 'is_toxic'] + kept_identities
-    df = df[keep_cols]
+    ds = ds.select_columns([c for c in keep_cols if c in ds.column_names])
     
-    return df
+    return ds, kept_identities
+
+def tokenize_jigsaw_dataset(dataset, tokenizer_name: str, max_length: int = 128):
+    """
+    Tokenizes the dataset eagerly using HF's memory-mapped Arrow backend.
+    """
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+    
+    def tokenize_function(examples):
+        return tokenizer(
+            [str(t) if t is not None else "" for t in examples["comment_text"]],
+            padding="max_length",
+            truncation=True,
+            max_length=max_length
+        )
+        
+    print(f"Tokenizing dataset using {tokenizer_name} (memory-mapped)...")
+    tokenized_dataset = dataset.map(
+        tokenize_function,
+        batched=True,
+        desc="Tokenizing dataset"
+    )
+    
+    return tokenized_dataset
 
 class JigsawDataset(Dataset):
     """
     PyTorch Dataset wrapper for the Jigsaw dataset.
-    Given a dataframe (from download_and_prep_jigsaw) and a HuggingFace tokenizer,
-    this yields tokenized inputs and labels, along with identity flags for evaluation.
+    Yields pre-tokenized inputs and evaluation targets.
     """
-    def __init__(self, df: pd.DataFrame, tokenizer_name: str, max_length: int = 128):
-        self.df = df.reset_index(drop=True)
-        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
-        self.max_length = max_length
-        
-        self.texts = self.df['comment_text'].tolist()
-        self.labels = self.df['is_toxic'].tolist()
-        
-        # Discover dynamically which identity columns were kept
-        self.identity_columns = [col for col in ALL_IDENTITY_COLUMNS if col in self.df.columns]
-        self.identities = {col: self.df[col].tolist() for col in self.identity_columns}
+    def __init__(self, dataset, identity_columns):
+        self.dataset = dataset
+        self.identity_columns = identity_columns
 
     def __len__(self):
-        return len(self.df)
+        return len(self.dataset)
 
     def __getitem__(self, idx):
-        text = str(self.texts[idx])
-        label = self.labels[idx]
+        item = self.dataset[idx]
         
-        encoding = self.tokenizer(
-            text,
-            add_special_tokens=True,
-            max_length=self.max_length,
-            padding='max_length',
-            truncation=True,
-            return_tensors='pt'
-        )
-        
-        item = {
-            'input_ids': encoding['input_ids'].flatten(),
-            'attention_mask': encoding['attention_mask'].flatten(),
-            'label': torch.tensor(label, dtype=torch.long)
+        result = {
+            'input_ids': torch.tensor(item['input_ids'], dtype=torch.long),
+            'attention_mask': torch.tensor(item['attention_mask'], dtype=torch.long),
+            'label': torch.tensor(item['is_toxic'], dtype=torch.long)
         }
         
-        for col in self.identity_columns:
-            item[col] = torch.tensor(self.identities[col][idx], dtype=torch.long)
-            
-        return item
+        # Package continuous identity probabilities into a single tensor for Subgroup AUC
+        identity_probs = [float(item.get(col, 0.0)) for col in self.identity_columns]
+        result['identity_probs'] = torch.tensor(identity_probs, dtype=torch.float32)
+        
+        return result
