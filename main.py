@@ -10,7 +10,7 @@ from sklearn.pipeline import Pipeline
 from tqdm import tqdm
 
 from src.dataset import download_and_prep_jigsaw
-from src.evaluator import evaluate_bias, evaluate_sorry_bench
+from src.evaluator import evaluate_bias
 
 def train_and_eval_baseline(train_ds, val_ds, identity_columns):
     """Trains and evaluates the baseline TF-IDF + Logistic Regression model."""
@@ -216,11 +216,7 @@ def main():
                 ft_model = AutoModelForSequenceClassification.from_pretrained(model_load_path, num_labels=2)
                 ft_df = eval_transformer(f"Fine-Tuned {base_model_name}", ft_model, tokenizer, eval_ds, identity_columns, device)
                 all_results_dict[f"{base_model_name} Finetuned"] = ft_df
-                
-                # GENERALIZATION TEST
-                print(f"\n--- Evaluating Generalization on SORRY-bench for {base_model_name} ---")
-                sorry_bench_toxic_rate = evaluate_sorry_bench(ft_model, tokenizer, device, num_samples=500)
-                print(f"Fine-Tuned {base_model_name} Toxicity Rate on Safe Prompts: {sorry_bench_toxic_rate:.4f}")
+
             except Exception as e:
                 print(f"Error loading fine-tuned model {base_model_name}: {e}")
 
