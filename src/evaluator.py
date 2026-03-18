@@ -56,14 +56,15 @@ def compute_pinned_auc(y_true, y_pred_probs, subgroup_mask, random_state=42):
     if len(subgroup_indices) == 0 or len(background_indices) == 0:
         return np.nan
         
-    # Sample background to match subgroup size
+    # For small subgroups, ensure we take a minimum number of background examples
+    # to prevent high variance in AUC calculation. 
     np.random.seed(random_state)
-    sample_size = min(len(subgroup_indices), len(background_indices))
-    sampled_background_indices = np.random.choice(background_indices, size=sample_size, replace=False)
+    bg_sample_size = max(min(len(subgroup_indices), len(background_indices)), min(500, len(background_indices)))
+    sampled_background_indices = np.random.choice(background_indices, size=bg_sample_size, replace=False)
     
-    # Optional: Since equation (3) says |s(Dt)| = |s(D)|, we can also sub-sample the subgroup 
-    # to match the background if the subgroup is larger. Using `sample_size` ensures balance.
-    sampled_subgroup_indices = np.random.choice(subgroup_indices, size=sample_size, replace=False)
+    # Take the entire subgroup (unless it's somehow larger than the entire background, which is rare)
+    sg_sample_size = min(len(subgroup_indices), len(background_indices))
+    sampled_subgroup_indices = np.random.choice(subgroup_indices, size=sg_sample_size, replace=False)
     
     pinned_indices = np.concatenate([sampled_subgroup_indices, sampled_background_indices])
     pinned_y_true = y_true[pinned_indices]
@@ -130,55 +131,4 @@ def evaluate_bias(y_true, y_pred_probs, identity_matrix, identity_columns, thres
 # Alias to maintain backwards compatibility while adopting the requested `evaluate_bias` name
 evaluate_models_metrics = evaluate_bias
 
-def evaluate_sorry_bench(model, tokenizer, device, num_samples=200, batch_size=32):
-    """
-    Evaluates a fine-tuned model on a subset of the SORRY-bench safety prompts.
-    Since SORRY-bench contains prompts designed to test safety evaluation in LLMs, we can
-    use the texts to see how often our simple toxicity classifier flags them as toxic.
-    High toxicity rate on these prompts might indicate generalization to diverse safety issues.
-    
-    Args:
-        model: Hugging Face model
-        tokenizer: Hugging Face tokenizer
-        device: torch.device
-        num_samples: int, number of samples to evaluate on
-        batch_size: int
-        
-    Returns:
-        float: The proportion of prompts classified as toxic.
-    """
-    print(f"Loading SORRY-bench dataset ({num_samples} samples)...")
-    try:
-        ds = load_dataset("sorry-bench/sorry-bench-202406", split="test")
-        # Subsample to keep evaluation quick
-        ds = ds.shuffle(seed=42).select(range(min(num_samples, len(ds))))
-    except Exception as e:
-        print(f"Failed to load SORRY-bench: {e}")
-        return np.nan
-        
-    texts = [item['prompt'] for item in ds]
-    model.eval()
-    
-    all_preds = []
-    
-    print("Evaluating on SORRY-bench...")
-    with torch.no_grad():
-        for i in tqdm(range(0, len(texts), batch_size)):
-            batch_texts = texts[i:i+batch_size]
-            inputs = tokenizer(batch_texts, return_tensors="pt", padding=True, truncation=True, max_length=128)
-            inputs = {k: v.to(device) for k, v in inputs.items()}
-            
-            outputs = model(**inputs)
-            logits = outputs.logits
-            
-            # Assuming toxicity is class 1
-            if logits.shape[1] == 2:
-                probs = torch.softmax(logits, dim=-1)[:, 1]
-            else:
-                probs = torch.sigmoid(logits)[:, 0]
-                
-            preds = (probs > 0.5).int().cpu().numpy()
-            all_preds.extend(preds)
-            
-    toxicity_rate = np.mean(all_preds)
-    return toxicity_rate
+

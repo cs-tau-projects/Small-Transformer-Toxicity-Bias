@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer
@@ -83,6 +84,12 @@ class JigsawDataset(Dataset):
     def __init__(self, dataset, identity_columns):
         self.dataset = dataset
         self.identity_columns = identity_columns
+        
+        # Pre-calculate identity matrix to avoid repeated lookups during evaluation
+        identities_list = []
+        for col in self.identity_columns:
+            identities_list.append(self.dataset[col])
+        self.identity_matrix = np.array(identities_list).T
 
     def __len__(self):
         return len(self.dataset)

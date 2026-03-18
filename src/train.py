@@ -30,22 +30,20 @@ def compute_metrics(eval_pred, identity_columns, eval_dataset):
     """
     logits, labels = eval_pred
     
-    # Sigmoid to get probabilities since this is binary classification
-    probs = 1 / (1 + np.exp(-logits[:, 1])) if logits.shape[1] > 1 else 1 / (1 + np.exp(-logits[:, 0])) 
-    # DistilBERT normally outputs (N, 2) for num_labels=2. We want the prob of class 1
+    # Calculate probabilities based on the number of logits
     if logits.shape[1] == 2:
-        probs = 1 / (1 + np.exp(-logits))
-        # Softmax for probabilities
-        probs = np.exp(logits) / np.sum(np.exp(logits), axis=-1, keepdims=True)
+        # Softmax for 2-class classification
+        exp_logits = np.exp(logits - np.max(logits, axis=1, keepdims=True)) # for numerical stability
+        probs = exp_logits / np.sum(exp_logits, axis=1, keepdims=True)
         probs = probs[:, 1]
+    else:
+        # Sigmoid for binary classification with a single output logit
+        probs = 1 / (1 + np.exp(-logits[:, 0]))
     
     # To compute subgroup logic we need the identity matrix.
     # The Trainer's compute_metrics doesn't easily pass inputs, so we capture them via a closure
-    # from the dataset.
-    identities_list = []
-    for col in identity_columns:
-        identities_list.append(eval_dataset[col])
-    identity_matrix = np.array(identities_list).T
+    # from the dataset. We pre-calculate it in the JigsawDataset object for performance.
+    identity_matrix = eval_dataset.identity_matrix
     
     res_df = evaluate_models_metrics(
         y_true=labels,
@@ -126,7 +124,7 @@ def main():
         per_device_train_batch_size=args.batch_size,
         per_device_eval_batch_size=args.batch_size,
         learning_rate=args.learning_rate,
-        evaluation_strategy="epoch",  # Evaluate linearly over epochs
+        eval_strategy="epoch",  # Evaluate linearly over epochs
         save_strategy="epoch",        # Save linearly over epochs
         save_total_limit=2,           # Per instructions, do not blow up storage
         load_best_model_at_end=True,  # Per instructions
@@ -138,9 +136,9 @@ def main():
         logging_steps=100
     )
     
-    # Create closure for compute_metrics to pass val_split
+    # Create closure for compute_metrics to pass val_dataset
     def compute_metrics_wrapper(eval_pred):
-        return compute_metrics(eval_pred, identity_columns, val_split)
+        return compute_metrics(eval_pred, identity_columns, val_dataset)
     
     # 5. Initialize Trainer
     trainer = Trainer(
