@@ -1,5 +1,6 @@
 import os
 import subprocess
+import sys
 
 def run_finetune_step(models, output_dir):
     for base_model_name in models:
@@ -10,12 +11,16 @@ def run_finetune_step(models, output_dir):
         
         if not os.path.exists(os.path.join(finetuned_model_dir, "config.json")):
             cmd = [
-                "python", "-m", "src.train",
+                sys.executable, "-m", "src.train",
                 "--model_name", base_model_name,
                 "--output_base_dir", model_output_base_dir,
                 "--epochs", "1",
                 "--batch_size", "32"
             ]
-            subprocess.run(cmd, check=True)
+            
+            # Force Hugging Face Trainer to show its internal step progress bar
+            env = os.environ.copy()
+            env["TQDM_FORCE"] = "1"
+            subprocess.run(cmd, check=True, env=env)
         else:
             print(f"Fine-tuned model checkpoint found in {finetuned_model_dir}. Skipping training.")

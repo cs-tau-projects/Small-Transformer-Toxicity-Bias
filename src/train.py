@@ -134,8 +134,8 @@ def main():
         greater_is_better=True,
         seed=args.seed,
         fp16=torch.cuda.is_available(), # use mixed precision if GPU available
-        logging_dir=os.path.join(output_dir, "logs"),
-        logging_steps=100
+        logging_steps=10,               # Log more frequently
+        disable_tqdm=False              # Explicitly ensure Trainer progress bar is enabled
     )
     
     # Create closure for compute_metrics to pass val_dataset
