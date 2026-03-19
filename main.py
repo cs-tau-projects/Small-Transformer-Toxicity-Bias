@@ -101,7 +101,7 @@ def format_final_report(all_results_dict):
         cols = ['Identity']
         if 'Total Examples' in df.columns:
             cols.append('Total Examples')
-        metric_cols = [col for col in df.columns if col.startswith(('1.', '3.', '4.', '5.'))]
+        metric_cols = [col for col in df.columns if col.startswith(('1.', '2.', '3.', '4.', '5.', '6.'))]
         
         # We rename the metric columns to have the model name prefixed
         rename_dict = {col: f"{model_name} {col.split('. ')[1]}" for col in metric_cols}
@@ -124,19 +124,25 @@ def format_final_report(all_results_dict):
     
     print("\n1. Overall AUC Comparison:")
     auc_cols = ['Identity'] + [c for c in final_df.columns if 'Overall AUC' in c]
-    overall_auc = final_df[auc_cols].head(1).copy()
-    overall_auc.loc[0, 'Identity'] = 'Overall Dataset'
-    print(overall_auc.to_string(index=False))
+    if auc_cols[1:]:  # Ensure matching cols exist
+        overall_auc = final_df[auc_cols].head(1).copy()
+        overall_auc.loc[0, 'Identity'] = 'Overall Dataset'
+        print(overall_auc.to_string(index=False))
     
-    print("\n2. Pinned AUC Comparison Across Subgroups:")
-    pinned_cols = ['Identity'] + [c for c in final_df.columns if 'Pinned AUC' in c]
-    pinned_auc = final_df[pinned_cols]
-    print(pinned_auc.to_string(index=False))
+    print("\n2. Subgroup AUC Comparison:")
+    subgroup_cols = ['Identity'] + [c for c in final_df.columns if 'Subgroup AUC' in c]
+    subgroup_auc = final_df[subgroup_cols]
+    print(subgroup_auc.to_string(index=False))
     
-    print("\n3. Subgroup FNR Gap Comparison:")
-    fnr_cols = ['Identity'] + [c for c in final_df.columns if 'Subgroup FNR Gap' in c]
-    fnr_gap = final_df[fnr_cols]
-    print(fnr_gap.to_string(index=False))
+    print("\n3. FNR Comparison (Subgroup and Overall):")
+    fnr_cols = ['Identity'] + [c for c in final_df.columns if 'FNR' in c]
+    fnr = final_df[fnr_cols]
+    print(fnr.to_string(index=False))
+
+    print("\n4. FPR Comparison (Subgroup and Overall):")
+    fpr_cols = ['Identity'] + [c for c in final_df.columns if 'FPR' in c]
+    fpr = final_df[fpr_cols]
+    print(fpr.to_string(index=False))
 
 def main():
     transformer_models = [

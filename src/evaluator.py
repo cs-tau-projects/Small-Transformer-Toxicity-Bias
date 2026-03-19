@@ -26,54 +26,13 @@ def compute_fnr(y_true, y_pred_binary):
     tn, fp, fn, tp = confusion_matrix(y_true, y_pred_binary).ravel()
     return fn / (fn + tp) if (fn + tp) > 0 else np.nan
 
-def compute_fnr_gap(y_true, y_pred_binary, subgroup_mask):
-    """
-    Computes the False Negative Rate gap = FNR_subgroup - FNR_overall.
-    Positive gap means the model misses toxicity more often for this subgroup.
-    """
-    overall_fnr = compute_fnr(y_true, y_pred_binary)
-    
-    subgroup_y_true = y_true[subgroup_mask]
-    subgroup_y_pred_binary = y_pred_binary[subgroup_mask]
-    subgroup_fnr = compute_fnr(subgroup_y_true, subgroup_y_pred_binary)
-    
-    if np.isnan(overall_fnr) or np.isnan(subgroup_fnr):
+def compute_fpr(y_true, y_pred_binary):
+    """Computes False Positive Rate."""
+    if len(np.unique(y_true)) < 2:
         return np.nan
-        
-    return subgroup_fnr - overall_fnr
+    tn, fp, fn, tp = confusion_matrix(y_true, y_pred_binary).ravel()
+    return fp / (fp + tn) if (fp + tn) > 0 else np.nan
 
-def compute_pinned_auc(y_true, y_pred_probs, subgroup_mask, random_state=42):
-    """
-    Computes Pinned AUC as defined by Dixon et al. (2018).
-    Creates a balanced dataset containing:
-    - The full subgroup distribution.
-    - An equally-sized random sample from the background (overall) distribution.
-    """
-    subgroup_indices = np.where(subgroup_mask)[0]
-    background_indices = np.where(~subgroup_mask)[0]
-    
-    # If the subgroup is empty, or the background is empty, we can't compute
-    if len(subgroup_indices) == 0 or len(background_indices) == 0:
-        return np.nan
-        
-    # For small subgroups, ensure we take a minimum number of background examples
-    # to prevent high variance in AUC calculation. 
-    np.random.seed(random_state)
-    bg_sample_size = max(min(len(subgroup_indices), len(background_indices)), min(500, len(background_indices)))
-    sampled_background_indices = np.random.choice(background_indices, size=bg_sample_size, replace=False)
-    
-    # Take the entire subgroup (unless it's somehow larger than the entire background, which is rare)
-    sg_sample_size = min(len(subgroup_indices), len(background_indices))
-    sampled_subgroup_indices = np.random.choice(subgroup_indices, size=sg_sample_size, replace=False)
-    
-    pinned_indices = np.concatenate([sampled_subgroup_indices, sampled_background_indices])
-    pinned_y_true = y_true[pinned_indices]
-    pinned_y_pred_probs = y_pred_probs[pinned_indices]
-    
-    if len(np.unique(pinned_y_true)) < 2:
-        return np.nan
-        
-    return roc_auc_score(pinned_y_true, pinned_y_pred_probs)
 
 def evaluate_bias(y_true, y_pred_probs, identity_matrix, identity_columns, threshold=0.5):
     """
@@ -88,12 +47,13 @@ def evaluate_bias(y_true, y_pred_probs, identity_matrix, identity_columns, thres
         threshold: float, threshold to binarize predictions for FNR computation (default 0.5)
         
     Returns:
-        pd.DataFrame: Table with Overall AUC, Subgroup AUC, FNR gaps, and Pinned AUC for each identity.
+        pd.DataFrame: Table with Overall AUC, Overall FNR, Overall FPR, Subgroup AUC, Subgroup FNR, and Subgroup FPR for each identity.
     """
     y_pred_binary = (y_pred_probs >= threshold).astype(int)
     
     overall_auc = roc_auc_score(y_true, y_pred_probs)
     overall_fnr = compute_fnr(y_true, y_pred_binary)
+    overall_fpr = compute_fpr(y_true, y_pred_binary)
     
     metrics = []
     
@@ -106,13 +66,13 @@ def evaluate_bias(y_true, y_pred_probs, identity_matrix, identity_columns, thres
         # Calculate metrics if there are any examples in the subgroup
         if subgroup_mask.sum() > 0:
             subgroup_auc = compute_subgroup_auc(y_true, y_pred_probs, subgroup_mask)
-            fnr_gap = compute_fnr_gap(y_true, y_pred_binary, subgroup_mask)
-            pinned_auc = compute_pinned_auc(y_true, y_pred_probs, subgroup_mask)
+            subgroup_fnr = compute_fnr(y_true[subgroup_mask], y_pred_binary[subgroup_mask])
+            subgroup_fpr = compute_fpr(y_true[subgroup_mask], y_pred_binary[subgroup_mask])
             num_examples = subgroup_mask.sum()
         else:
             subgroup_auc = np.nan
-            fnr_gap = np.nan
-            pinned_auc = np.nan
+            subgroup_fnr = np.nan
+            subgroup_fpr = np.nan
             num_examples = 0
             
         metrics.append({
@@ -120,9 +80,10 @@ def evaluate_bias(y_true, y_pred_probs, identity_matrix, identity_columns, thres
             "Total Examples": num_examples,
             "1. Overall AUC": overall_auc,
             "2. Overall FNR": overall_fnr,
-            "3. Subgroup AUC": subgroup_auc,
-            "4. Subgroup FNR Gap": fnr_gap,
-            "5. Pinned AUC": pinned_auc
+            "3. Overall FPR": overall_fpr,
+            "4. Subgroup AUC": subgroup_auc,
+            "5. Subgroup FNR": subgroup_fnr,
+            "6. Subgroup FPR": subgroup_fpr
         })
         
     df = pd.DataFrame(metrics)
