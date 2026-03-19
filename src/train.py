@@ -161,6 +161,10 @@ def main():
     print("Running final evaluation on validation set...")
     final_metrics = trainer.evaluate()
     print("Final Metrics:", final_metrics)
+    
+    # 8. Save best model to root output dir
+    trainer.save_model(output_dir)
+    print(f"Saved best model to {output_dir}")
 
 if __name__ == "__main__":
     main()
