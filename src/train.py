@@ -65,10 +65,12 @@ def compute_metrics(eval_pred, identity_columns, eval_dataset):
     metrics_dict = {"roc_auc": overall_auc}
     for _, row in res_df.iterrows():
         ident = row["Identity"]
-        if not np.isnan(row["3. Subgroup AUC"]):
-            metrics_dict[f"{ident}_subgroup_auc"] = row["3. Subgroup AUC"]
-        if not np.isnan(row["4. Subgroup FNR Gap"]):
-            metrics_dict[f"{ident}_fnr_gap"] = row["4. Subgroup FNR Gap"]
+        if not np.isnan(row["4. Subgroup AUC"]):
+            metrics_dict[f"{ident}_subgroup_auc"] = row["4. Subgroup AUC"]
+        if not np.isnan(row["5. Subgroup FNR"]):
+            metrics_dict[f"{ident}_subgroup_fnr"] = row["5. Subgroup FNR"]
+        if not np.isnan(row["6. Subgroup FPR"]):
+            metrics_dict[f"{ident}_subgroup_fpr"] = row["6. Subgroup FPR"]
             
     return metrics_dict
 
