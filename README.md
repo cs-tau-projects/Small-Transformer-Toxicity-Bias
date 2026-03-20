@@ -16,13 +16,34 @@ While Large Language Models (LLMs) are currently prominent, many deployed modera
 * **Dataset**: Google Jigsaw Unintended Bias in Toxicity Classification dataset.
 * **Evaluation**: Performance is measured using ROC-AUC, subgroup AUC, and False Negative Rates (FNR) to identify potential bias gaps.
 
+## Environment Setup
+
+For better reproducibility, we recommend using Conda or a Python virtual environment.
+
+### Using Conda (Recommended)
+```bash
+conda env create -f environment.yml
+conda activate toxicity-bias
+```
+
+### Using Pip
+```bash
+make install
+```
+
 ## How to Run
 
-The pipeline has been designed to support both all-in-one execution and step-by-step execution. Step-by-step execution is highly recommended when running heavy jobs to permit easier debugging and to prevent data loss if a later step (e.g., LLaMA inference) runs out of memory.
+The pipeline can be managed using the provided `Makefile` or by calling `main.py` directly.
 
-All intermediate datasets, models, and results are saved to the `--output_dir` (defaults to `./outputs`), allowing subsequent steps to load them from disk.
+### Running All at Once
+```bash
+make run-all
+```
 
 ### Running Step-by-Step
+The pipeline has been designed to support step-by-step execution. This is highly recommended when running heavy jobs to permit easier debugging and to prevent data loss.
+
+All intermediate datasets, models, and results are saved to the `--output_dir` (defaults to `./outputs`), allowing subsequent steps to load them from disk.
 
 ```bash
 # 1. Download, shuffle, split, and cache the datasets
@@ -47,18 +68,26 @@ python main.py --step llama
 python main.py --step report
 ```
 
-### Running All at Once
-To run the entire pipeline end-to-end sequentially:
-```bash
-python main.py --step all
-```
-*(Note: even when running `all`, intermediate results are still persisted to disk).*
-
 ### University Cluster Usage
-When running on the SLURM cluster, make sure to point the output directory to the persistent storage to avoid filling up the limited home directory:
+When running on the SLURM cluster, make sure to point the output directory to the persistent storage:
 
 ```bash
 python main.py --step all --output_dir /vol/joberant_nobck/data/NLP_368307701_2526a/<YOUR_USER_NAME>
+```
+
+## Citation
+
+If you find this research or code useful, please cite it as follows:
+
+```bibtex
+@software{German_Small-Transformer-Toxicity-Bias_2026,
+  author = {German, Maxim and Shufaro, Eran and Abramovich, Ilay and Hazan, Itay},
+  month = {3},
+  title = {{Small-Transformer-Toxicity-Bias}},
+  url = {https://github.com/cs-tau-projects/Small-Transformer-Toxicity-Bias},
+  version = {1.0.0},
+  year = {2026}
+}
 ```
 
 ## Requirements
