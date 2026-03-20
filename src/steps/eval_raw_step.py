@@ -8,11 +8,11 @@ def run_eval_raw_step(data_dir, results_dir, cache_dir, models, device):
     for base_model_name in models:
         print(f"\nLoading Raw Pre-trained Transformer ({base_model_name})...")
         try:
-            tokenizer = AutoTokenizer.from_pretrained(base_model_name, cache_dir=cache_dir)
+            tokenizer = AutoTokenizer.from_pretrained(base_model_name, cache_dir=cache_dir, token=get_hf_token())
             if tokenizer.pad_token is None:
                 tokenizer.pad_token = tokenizer.eos_token
             raw_model = AutoModelForSequenceClassification.from_pretrained(
-                base_model_name, num_labels=2, cache_dir=cache_dir
+                base_model_name, num_labels=2, cache_dir=cache_dir, token=get_hf_token()
             )
             raw_df = eval_transformer(f"Raw {base_model_name}", raw_model, tokenizer, eval_ds, identity_columns, device)
             

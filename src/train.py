@@ -9,6 +9,7 @@ from transformers import (
     set_seed
 )
 from src.dataset import download_and_prep_jigsaw, tokenize_jigsaw_dataset, JigsawDataset
+from src.data_utils import get_hf_token
 from src.evaluator import evaluate_models_metrics
 
 def parse_args():
@@ -82,6 +83,7 @@ def main():
     
     # Setup directories
     cache_dir = os.path.join(args.output_base_dir, ".cache")
+    hf_token = get_hf_token()
     output_dir = os.path.join(args.output_base_dir, "small-transformer-toxicity")
     
     os.makedirs(cache_dir, exist_ok=True)
@@ -116,7 +118,8 @@ def main():
     model = AutoModelForSequenceClassification.from_pretrained(
         args.model_name,
         num_labels=2,
-        cache_dir=cache_dir
+        cache_dir=cache_dir,
+        token=hf_token
     )
     
     # 4. Define Training Arguments and Strategy

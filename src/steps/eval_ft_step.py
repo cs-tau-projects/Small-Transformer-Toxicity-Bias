@@ -1,5 +1,6 @@
 import os
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from src.data_utils import get_hf_token
 from src.steps.utils import load_saved_data, eval_transformer
 
 def run_eval_ft_step(data_dir, results_dir, cache_dir, output_dir, models, device):
