@@ -2,10 +2,11 @@
 This script loads the Google Jigsaw Unintended Bias in Toxicity Classification
 dataset from Hugging Face.
 """
-import sys
 import os
+import sys
 import getpass
 from datasets import load_dataset
+from src.data_utils import get_hf_token
 
 def get_jigsaw_dataset(split="train", cache_dir=None):
     """
@@ -37,7 +38,7 @@ def get_jigsaw_dataset(split="train", cache_dir=None):
         elif split == "test":
             data_files["test"] = "hf://datasets/shuttie/jigsaw-unintended-bias/data/test_private_expanded.csv.gz"
             
-        dataset = load_dataset("csv", data_files=data_files, cache_dir=cache_dir)
+        dataset = load_dataset("csv", data_files=data_files, cache_dir=cache_dir, token=get_hf_token())
         
         # Access the dataset split
         split_data = dataset[split]

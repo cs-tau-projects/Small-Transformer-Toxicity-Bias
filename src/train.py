@@ -9,6 +9,7 @@ from transformers import (
     set_seed
 )
 from src.dataset import download_and_prep_jigsaw, tokenize_jigsaw_dataset, JigsawDataset
+from src.data_utils import get_hf_token
 from src.evaluator import evaluate_models_metrics
 
 def parse_args():
@@ -82,6 +83,7 @@ def main():
     
     # Setup directories
     cache_dir = os.path.join(args.output_base_dir, ".cache")
+    hf_token = get_hf_token()
     output_dir = os.path.join(args.output_base_dir, "small-transformer-toxicity")
     
     os.makedirs(cache_dir, exist_ok=True)
@@ -116,7 +118,8 @@ def main():
     model = AutoModelForSequenceClassification.from_pretrained(
         args.model_name,
         num_labels=2,
-        cache_dir=cache_dir
+        cache_dir=cache_dir,
+        token=hf_token
     )
     
     # 4. Define Training Arguments and Strategy
@@ -134,8 +137,8 @@ def main():
         greater_is_better=True,
         seed=args.seed,
         fp16=torch.cuda.is_available(), # use mixed precision if GPU available
-        logging_dir=os.path.join(output_dir, "logs"),
-        logging_steps=100
+        logging_steps=10,               # Log more frequently
+        disable_tqdm=False              # Explicitly ensure Trainer progress bar is enabled
     )
     
     # Create closure for compute_metrics to pass val_dataset
@@ -161,6 +164,10 @@ def main():
     print("Running final evaluation on validation set...")
     final_metrics = trainer.evaluate()
     print("Final Metrics:", final_metrics)
+    
+    # 8. Save best model to root output dir
+    trainer.save_model(output_dir)
+    print(f"Saved best model to {output_dir}")
 
 if __name__ == "__main__":
     main()

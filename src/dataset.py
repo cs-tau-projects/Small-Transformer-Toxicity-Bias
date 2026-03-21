@@ -33,8 +33,11 @@ def download_and_prep_jigsaw(split='train', threshold=0.5, cache_dir=None):
         # Binarize toxicity target
         is_toxic_batch = [int((target or 0) >= threshold) for target in examples['target']]
         
+        # Ensure comment_text is always a string (sklearn/transformers crash on None)
+        comments = [str(t) if t is not None else "" for t in examples["comment_text"]]
+        
         # Keep identities as continuous, fill nas with 0.0
-        result = {'is_toxic': is_toxic_batch}
+        result = {'is_toxic': is_toxic_batch, 'comment_text': comments}
         for col in kept_identities:
             result[col] = [float(val or 0.0) for val in examples[col]]
             
@@ -60,6 +63,8 @@ def tokenize_jigsaw_dataset(dataset, tokenizer_name: str, max_length: int = 128)
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
     
     def tokenize_function(examples):
+        # Note: None values are already handled by process_batch during prep, 
+        # but the guard is kept here for safety in case dataset is loaded differently.
         return tokenizer(
             [str(t) if t is not None else "" for t in examples["comment_text"]],
             padding="max_length",

@@ -4,3 +4,8 @@ torch
 pandas
 scikit-learn
 pyarrow
+python-dotenv
+huggingface_hub
+numpy
+tqdm
+pytest

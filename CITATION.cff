@@ -1,0 +1,15 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: "German"
+    given-names: "Maxim"
+  - family-names: "Shufaro"
+    given-names: "Eran"
+  - family-names: "Abramovich"
+    given-names: "Ilay"
+  - family-names: "Hazan"
+    given-names: "Itay"
+title: "Small-Transformer-Toxicity-Bias"
+version: 1.0.0
+date-released: 2026-03-20
+url: "https://github.com/cs-tau-projects/Small-Transformer-Toxicity-Bias"

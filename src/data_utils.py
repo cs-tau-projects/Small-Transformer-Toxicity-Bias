@@ -1,6 +1,7 @@
 import os
 import getpass
 from datasets import load_dataset
+from huggingface_hub import get_token
 
 ALL_IDENTITY_COLUMNS = [
     "asian", "atheist", "bisexual", "black", "buddhist", "christian", "female", 
@@ -23,6 +24,21 @@ def get_huggingface_cache_dir():
         cache_dir = "./.hf_cache"
     return cache_dir
 
+def get_hf_token():
+    """
+    Returns the Hugging Face token. 
+    Checks:
+    1. Environment variable HF_TOKEN (via load_dotenv if available)
+    2. Local cache (via huggingface_hub.get_token)
+    """
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+    except ImportError:
+        pass
+    
+    return get_token()
+
 def load_jigsaw_data(split="train", threshold=0.5):
     """
     Loads Jigsaw Unintended Bias dataset and returns comment_text, toxicity label, and identity metadata.
@@ -36,7 +52,7 @@ def load_jigsaw_data(split="train", threshold=0.5):
     elif split == "test":
         data_files["test"] = "hf://datasets/shuttie/jigsaw-unintended-bias/data/test_private_expanded.csv.gz"
         
-    dataset = load_dataset("csv", data_files=data_files, cache_dir=cache_dir)
+    dataset = load_dataset("csv", data_files=data_files, cache_dir=cache_dir, token=get_hf_token())
     ds = dataset[split]
     
     kept_identities = [col for col in ALL_IDENTITY_COLUMNS if col in ds.column_names]
