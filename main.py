@@ -1,5 +1,9 @@
 import os
 import argparse
+import random
+import numpy as np
+import torch
+from transformers import set_seed
 
 def main():
     parser = argparse.ArgumentParser(description="Toxicity Bias Evaluation Pipeline")
@@ -17,7 +21,15 @@ def main():
                         help="Number of training samples to use for baseline (-1 for all).")
     parser.add_argument("--eval_samples", type=int, default=5000,
                         help="Number of evaluation samples to use (-1 for all).")
+    parser.add_argument("--seed", type=int, default=42,
+                        help="Global random seed.")
     args = parser.parse_args()
+
+    # 1. Global Reproducibility
+    set_seed(args.seed)
+    if torch.cuda.is_available():
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
 
     # Shared directories
     cache_dir = os.path.join(args.output_dir, ".cache")
@@ -51,7 +63,7 @@ def main():
         from src.steps.finetune_step import run_finetune_step
         # Note: finetune_step delegates to src.train, so it does not need the 'device' variable.
         # It also does not use args.train_samples since src.train manages its own dataset splits.
-        run_finetune_step(args.models, args.output_dir)
+        run_finetune_step(args.models, args.output_dir, seed=args.seed)
 
     if args.step in ["eval-finetuned", "all"]:
         from src.steps.eval_ft_step import run_eval_ft_step
