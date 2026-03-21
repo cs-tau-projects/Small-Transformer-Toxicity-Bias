@@ -2,7 +2,7 @@ import os
 import subprocess
 import sys
 
-def run_finetune_step(models, output_dir):
+def run_finetune_step(models, output_dir, seed=42):
     for base_model_name in models:
         print(f"\nTriggering fine-tuning for {base_model_name}...")
         safe_name = base_model_name.replace("/", "_")
@@ -15,7 +15,8 @@ def run_finetune_step(models, output_dir):
                 "--model_name", base_model_name,
                 "--output_base_dir", model_output_base_dir,
                 "--epochs", "1",
-                "--batch_size", "32"
+                "--batch_size", "32",
+                "--seed", str(seed)
             ]
             
             # Force Hugging Face Trainer to show its internal step progress bar

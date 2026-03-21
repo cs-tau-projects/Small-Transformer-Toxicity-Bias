@@ -56,11 +56,11 @@ def download_and_prep_jigsaw(split='train', threshold=0.5, cache_dir=None):
     
     return ds, kept_identities
 
-def tokenize_jigsaw_dataset(dataset, tokenizer_name: str, max_length: int = 128):
+def tokenize_jigsaw_dataset(dataset, tokenizer_name: str, max_length: int = 128, cache_dir: str = None):
     """
     Tokenizes the dataset eagerly using HF's memory-mapped Arrow backend.
     """
-    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, cache_dir=cache_dir)
     
     def tokenize_function(examples):
         # Note: None values are already handled by process_batch during prep, 
