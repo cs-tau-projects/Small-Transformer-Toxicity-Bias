@@ -80,6 +80,9 @@ def main():
     
     # 1. Reproducibility
     set_seed(args.seed)
+    if torch.cuda.is_available():
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
     
     # Setup directories
     cache_dir = os.path.join(args.output_base_dir, ".cache")
@@ -106,8 +109,8 @@ def main():
     val_split = train_hf.select(range(split_idx, len(train_hf)))
 
     # Tokenize
-    train_tokenized = tokenize_jigsaw_dataset(train_split, args.model_name)
-    val_tokenized = tokenize_jigsaw_dataset(val_split, args.model_name)
+    train_tokenized = tokenize_jigsaw_dataset(train_split, args.model_name, cache_dir=cache_dir)
+    val_tokenized = tokenize_jigsaw_dataset(val_split, args.model_name, cache_dir=cache_dir)
     
     # Create PyTorch datasets
     train_dataset = JigsawDataset(train_tokenized, identity_columns)
