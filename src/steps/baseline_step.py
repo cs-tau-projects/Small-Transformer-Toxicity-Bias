@@ -3,6 +3,7 @@ import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
+import joblib
 from src.evaluator import evaluate_bias
 from src.steps.utils import load_saved_data
 
@@ -42,3 +43,8 @@ def run_baseline_step(data_dir, results_dir):
     out_path = os.path.join(results_dir, "baseline_metrics.csv")
     metrics_df.to_csv(out_path, index=False)
     print(f"Saved Baseline metrics to {out_path}")
+    
+    # Save the pipeline for OOD evaluation
+    pipeline_path = os.path.join(results_dir, "baseline_pipeline.joblib")
+    joblib.dump(pipeline, pipeline_path)
+    print(f"Saved Baseline pipeline to {pipeline_path}")

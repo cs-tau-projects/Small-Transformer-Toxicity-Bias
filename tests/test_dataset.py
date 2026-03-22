@@ -1,4 +1,3 @@
-import pytest
 import torch
 from unittest.mock import patch
 from src.data_loader import get_jigsaw_dataset

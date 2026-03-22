@@ -10,6 +10,7 @@ help:
 	@echo "  make eval-raw        - Run raw transformer evaluation step"
 	@echo "  make finetune        - Run transformer fine-tuning step"
 	@echo "  make eval-finetuned  - Run fine-tuned transformer evaluation step"
+	@echo "  make eval-ood        - Run Out-Of-Domain (ToxiGen) evaluation on fine-tuned models"
 	@echo "  make llama           - Run LLaMA zero-shot evaluation step"
 	@echo "  make report          - Generate final evaluation report"
 	@echo "  make clean           - Remove cached files and outputs"
@@ -37,6 +38,9 @@ finetune:
 
 eval-finetuned:
 	python main.py --step eval-finetuned
+
+eval-ood:
+	python main.py --step eval-ood
 
 llama:
 	python main.py --step llama
