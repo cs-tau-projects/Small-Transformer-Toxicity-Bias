@@ -43,7 +43,6 @@ def main():
     # We only determine the device if we are running a model-related step
     device = None
     if args.step in ["eval-raw", "finetune", "eval-finetuned", "llama", "all"]:
-        import torch
         device = torch.device("cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu"))
         print(f"Using device: {device}")
     

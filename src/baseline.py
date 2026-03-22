@@ -5,11 +5,11 @@ from sklearn.pipeline import Pipeline
 import joblib
 import os
 
-from src.data_utils import load_jigsaw_data
+from src.dataset import download_and_prep_jigsaw
 
 def train_baseline(model_save_path="models/baseline_model.joblib"):
     print("Loading Baseline Logistic Regression training data...")
-    train_ds, identity_columns = load_jigsaw_data(split='train')
+    train_ds, identity_columns = download_and_prep_jigsaw(split='train')
     
     # We use memory-mapped lists which is efficient
     print("Extracting features from dataset...")
