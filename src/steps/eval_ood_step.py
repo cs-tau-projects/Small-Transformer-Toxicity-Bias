@@ -127,32 +127,43 @@ def run_eval_ood_step(results_dir, cache_dir, output_dir, models, device, eval_s
                      
                 df_with_preds = eval_transformer_ood(f"Fine-Tuned {base_model_name}", ft_model, tokenizer, df.copy(), device)
                 
-                # Toxigen defines targets in lists, usually under 'target_groups' or similar
-                # We need to extract unique identities and create a binary matrix.
+                # ToxiGen naming varies between versions (skg/toxigen-data vs toxigen/toxigen-data)
+                # It may be 'target_groups', 'target_group', or 'group'
+                possible_group_cols = ['target_groups', 'target_group', 'group']
+                found_group_col = next((c for c in possible_group_cols if c in df_with_preds.columns), None)
+                
                 identity_cols = []
                 identity_matrix_data = {}
                 
-                if 'target_groups' in df_with_preds.columns:
-                    # Some versions have lists of groups like "['black', 'muslim']"
+                if found_group_col:
                     import ast
                     for i, row in df_with_preds.iterrows():
-                        groups = row['target_groups']
-                        if isinstance(groups, str):
-                            try:
-                                groups = ast.literal_eval(groups)
-                            except:
-                                groups = [groups]
-                        if isinstance(groups, list):
-                            for g in groups:
-                                if g and g != 'none' and g != 'None':
-                                    if g not in identity_cols:
-                                        identity_cols.append(g)
-                                        identity_matrix_data[g] = np.zeros(len(df_with_preds))
-                                    identity_matrix_data[g][i] = 1.0
+                        group_val = row[found_group_col]
+                        # Handle cases where it's a string representation of a list
+                        if isinstance(group_val, str):
+                            if group_val.startswith('[') and group_val.endswith(']'):
+                                try:
+                                    groups = ast.literal_eval(group_val)
+                                except:
+                                    groups = [group_val]
+                            else:
+                                # Sometimes it's a comma-separated string or just a single string
+                                groups = [g.strip() for g in group_val.split(',')]
+                        elif isinstance(group_val, list):
+                            groups = group_val
+                        else:
+                            groups = [str(group_val)]
+
+                        for g in groups:
+                            if g and g.lower() not in ['none', 'nan', 'null', 'unknown']:
+                                if g not in identity_cols:
+                                    identity_cols.append(g)
+                                    identity_matrix_data[g] = np.zeros(len(df_with_preds))
+                                identity_matrix_data[g][i] = 1.0
                                     
                 if not identity_cols:
-                    # Fallback if target_groups isn't clear
-                    print("Warning: Could not parse target_groups. Only overall metrics will be calculated.")
+                    # Fallback if no target groups found
+                    print(f"Warning: Could not parse identity groups from column '{found_group_col}'. Only overall metrics will be calculated.")
                     identity_cols = ["placeholder"]
                     identity_matrix = np.zeros((len(df_with_preds), 1))
                 else:
