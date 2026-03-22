@@ -1,9 +1,6 @@
 import pandas as pd
 import numpy as np
 from sklearn.metrics import roc_auc_score, confusion_matrix
-import torch
-from datasets import load_dataset
-from tqdm import tqdm
 
 def compute_subgroup_auc(y_true, y_pred, subgroup_mask):
     """

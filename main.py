@@ -1,14 +1,12 @@
 import os
 import argparse
-import random
-import numpy as np
 import torch
 from transformers import set_seed
 
 def main():
     parser = argparse.ArgumentParser(description="Toxicity Bias Evaluation Pipeline")
     parser.add_argument("--step", type=str, default="all",
-                        choices=["data", "baseline", "eval-raw", "finetune", "eval-finetuned", "llama", "report", "all"],
+                        choices=["data", "baseline", "eval-raw", "finetune", "eval-finetuned", "eval-ood", "llama", "report", "all"],
                         help="Which step of the pipeline to run.")
     parser.add_argument("--output_dir", type=str, default="./outputs",
                         help="Base directory for caches, models, and outputs.")
@@ -42,7 +40,7 @@ def main():
     
     # We only determine the device if we are running a model-related step
     device = None
-    if args.step in ["eval-raw", "finetune", "eval-finetuned", "llama", "all"]:
+    if args.step in ["eval-raw", "finetune", "eval-finetuned", "eval-ood", "llama", "all"]:
         device = torch.device("cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu"))
         print(f"Using device: {device}")
     
@@ -67,6 +65,10 @@ def main():
     if args.step in ["eval-finetuned", "all"]:
         from src.steps.eval_ft_step import run_eval_ft_step
         run_eval_ft_step(data_dir, results_dir, cache_dir, args.output_dir, args.models, device)
+
+    if args.step == "eval-ood":
+        from src.steps.eval_ood_step import run_eval_ood_step
+        run_eval_ood_step(results_dir, cache_dir, args.output_dir, args.models, device, args.eval_samples)
 
     if args.step in ["llama", "all"]:
         from src.steps.llama_step import run_llama_step

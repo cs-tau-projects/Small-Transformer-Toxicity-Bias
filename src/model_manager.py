@@ -1,4 +1,3 @@
-import os
 import getpass
 from transformers import AutoModelForSequenceClassification, Trainer, TrainingArguments
 
