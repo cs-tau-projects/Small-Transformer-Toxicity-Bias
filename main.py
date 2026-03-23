@@ -58,9 +58,7 @@ def main():
 
     if args.step in ["finetune", "all"]:
         from src.steps.finetune_step import run_finetune_step
-        # Note: finetune_step delegates to src.train, so it does not need the 'device' variable.
-        # It also does not use args.train_samples since src.train manages its own dataset splits.
-        run_finetune_step(args.models, args.output_dir, seed=args.seed)
+        run_finetune_step(args.models, args.output_dir, seed=args.seed, train_samples=args.train_samples)
 
     if args.step in ["eval-finetuned", "all"]:
         from src.steps.eval_ft_step import run_eval_ft_step

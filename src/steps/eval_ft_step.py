@@ -1,11 +1,12 @@
 import os
+from tqdm import tqdm
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from src.steps.utils import load_saved_data, eval_transformer
 
 def run_eval_ft_step(data_dir, results_dir, cache_dir, output_dir, models, device):
     _, eval_ds, identity_columns = load_saved_data(data_dir)
     
-    for base_model_name in models:
+    for base_model_name in tqdm(models, desc="Evaluating fine-tuned models"):
         safe_name = base_model_name.replace("/", "_")
         model_output_base_dir = os.path.join(output_dir, f"finetuned_{safe_name}")
         finetuned_model_dir = os.path.join(model_output_base_dir, "small-transformer-toxicity")

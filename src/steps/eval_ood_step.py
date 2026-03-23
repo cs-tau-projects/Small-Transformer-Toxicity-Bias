@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import torch
+from tqdm import tqdm
 from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from src.data.data_utils import get_hf_token
@@ -22,7 +23,7 @@ def eval_transformer_ood(model_name, model, tokenizer, df, device):
     
     model.eval()
     with torch.no_grad():
-        for i in range(0, len(texts), batch_size):
+        for i in tqdm(range(0, len(texts), batch_size), desc=f"OOD batches [{model_name}]"):
             batch_texts = texts[i:i+batch_size]
             encoded = tokenizer(batch_texts, padding=True, truncation=True, max_length=128, return_tensors="pt")
             encoded = {k: v.to(device) for k, v in encoded.items()}
@@ -186,7 +187,7 @@ def run_eval_ood_step(results_dir, cache_dir, output_dir, models, device, eval_s
         summary_results.append(baseline_metrics)
         
     # 2. Evaluate Transformer Models
-    for base_model_name in models:
+    for base_model_name in tqdm(models, desc="OOD eval models"):
         safe_name = base_model_name.replace("/", "_")
         model_output_base_dir = os.path.join(output_dir, f"finetuned_{safe_name}")
         finetuned_model_dir = os.path.join(model_output_base_dir, "small-transformer-toxicity")

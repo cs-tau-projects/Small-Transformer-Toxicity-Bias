@@ -1,4 +1,5 @@
 import os
+from tqdm import tqdm
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from src.steps.utils import load_saved_data, eval_transformer
 from src.data.data_utils import get_hf_token
@@ -6,7 +7,7 @@ from src.data.data_utils import get_hf_token
 def run_eval_raw_step(data_dir, results_dir, cache_dir, models, device):
     _, eval_ds, identity_columns = load_saved_data(data_dir)
     
-    for base_model_name in models:
+    for base_model_name in tqdm(models, desc="Evaluating raw models"):
         print(f"\nLoading Raw Pre-trained Transformer ({base_model_name})...")
         try:
             tokenizer = AutoTokenizer.from_pretrained(base_model_name, cache_dir=cache_dir, token=get_hf_token())

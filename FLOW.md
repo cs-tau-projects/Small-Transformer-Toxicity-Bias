@@ -13,12 +13,13 @@
 5. [Step 3 — Raw Transformer Evaluation](#5-step-3--raw-transformer-evaluation)
 6. [Step 4 — Fine-Tuning Transformers](#6-step-4--fine-tuning-transformers)
 7. [Step 5 — Fine-Tuned Evaluation](#7-step-5--fine-tuned-evaluation)
-8. [Step 6 — LLaMA Zero-Shot Evaluation](#8-step-6--llama-zero-shot-evaluation)
-9. [Step 7 — Report Generation](#9-step-7--report-generation)
-10. [Directory Layout & Saved Artifacts](#10-directory-layout--saved-artifacts)
-11. [Evaluation Metrics Deep-Dive](#11-evaluation-metrics-deep-dive)
-12. [Understanding the Output](#12-understanding-the-output)
-13. [Reproducibility](#13-reproducibility)
+8. [Step 6 — out-of-domain Evaluation](#8-step-6--out-of-domain-evaluation)
+9. [Step 7 — LLaMA Zero-Shot Evaluation](#9-step-7--llama-zero-shot-evaluation)
+10. [Step 8 — Report Generation](#10-step-8--report-generation)
+11. [Directory Layout & Saved Artifacts](#11-directory-layout--saved-artifacts)
+12. [Evaluation Metrics Deep-Dive](#12-evaluation-metrics-deep-dive)
+13. [Understanding the Output](#13-understanding-the-output)
+14. [Reproducibility](#14-reproducibility)
 
 ---
 
@@ -27,13 +28,14 @@
 ```
 main.py  (CLI entry point)
 │
-├── data       → src/steps/data_step.py      → src/dataset.py + src/data_loader.py
-├── baseline   → src/steps/baseline_step.py  → src/evaluator.py
-├── eval-raw   → src/steps/eval_raw_step.py  → src/steps/utils.py + src/evaluator.py
-├── finetune   → src/steps/finetune_step.py  ──spawns──▶ python -m src.train
-├── eval-finetuned → src/steps/eval_ft_step.py → src/steps/utils.py + src/evaluator.py
-├── llama      → src/steps/llama_step.py     → src/evaluator.py
-└── report     → src/steps/report_step.py
+├── data           → src/steps/data_step.py       → src/data/dataset.py + src/data/data_loader.py
+├── baseline       → src/steps/baseline_step.py   → src/evaluator.py
+├── eval-raw       → src/steps/eval_raw_step.py   → src/steps/utils.py + src/evaluator.py
+├── finetune       → src/steps/finetune_step.py   ──spawns──▶ python -m src.train
+├── eval-finetuned → src/steps/eval_ft_step.py    → src/steps/utils.py + src/evaluator.py
+├── eval-ood       → src/steps/eval_ood_step.py   → src/steps/utils.py + src/evaluator.py
+├── llama          → src/steps/llama_step.py      → src/evaluator.py
+└── report         → src/steps/report_step.py
 ```
 
 Each step is **independently runnable** via `--step <name>` or all together via `--step all`.
@@ -56,12 +58,12 @@ python main.py \
 
 | Argument | Default | Description |
 |---|---|---|
-| `--step` | `all` | Which pipeline step to run (`data`, `baseline`, `eval-raw`, `finetune`, `eval-finetuned`, `llama`, `report`, `all`) |
+| `--step` | `all` | Which pipeline step to run (`data`, `baseline`, `eval-raw`, `finetune`, `eval-finetuned`, `eval-ood`, `llama`, `report`, `all`) |
 | `--output_dir` | `./outputs` | Root directory for all caches, data, models, and results |
 | `--models` | 3 small transformers | List of HuggingFace model identifiers to evaluate |
 | `--llama_model` | `meta-llama/Llama-3.2-1B` | LLaMA model for zero-shot step |
-| `--train_samples` | `20000` | Max training samples for the baseline (-1 = all) |
-| `--eval_samples` | `5000` | Max evaluation samples (-1 = all) |
+| `--train_samples` | `20000` | Max training samples used for the baseline and fine-tuning steps. Pass `-1` to use the **full** training set. |
+| `--eval_samples` | `5000` | Max evaluation samples used across all evaluation steps. Pass `-1` to evaluate on the **full** evaluation set. |
 | `--seed` | `42` | Global random seed for reproducibility |
 
 **Reproducibility setup** happens immediately in [`main.py` lines 29–32](main.py#L29-L32): `set_seed()`, `deterministic=True`, `benchmark=False`.
@@ -83,7 +85,7 @@ outputs/
 
 ### 3.1 Downloading the Raw Dataset
 
-**File:** [`src/data_loader.py`](src/data_loader.py) — `get_jigsaw_dataset()` (line 11)
+**File:** [`src/data/data_loader.py`](src/data/data_loader.py) — `get_jigsaw_dataset()` (line 11)
 
 The dataset source is a community HuggingFace mirror of Jigsaw (`shuttie/jigsaw-unintended-bias`) loaded as raw CSV:
 
@@ -93,11 +95,11 @@ hf://datasets/shuttie/jigsaw-unintended-bias/data/test_private_expanded.csv.gz
 ```
 
 - **Cache location:** `<output_dir>/.cache/` (or cluster path `/vol/joberant_nobck/data/NLP_368307701_2526a/<user>/.cache/huggingface` when detected)
-- **Authentication:** HuggingFace token fetched via [`src/data_utils.py`](src/data_utils.py) `get_hf_token()` (line 27), which checks `HF_TOKEN` env variable (`.env` file) or the local HF token cache.
+- **Authentication:** HuggingFace token fetched via [`src/data/data_utils.py`](src/data/data_utils.py) `get_hf_token()` (line 27), which checks `HF_TOKEN` env variable (`.env` file) or the local HF token cache.
 
 ### 3.2 Preprocessing
 
-**File:** [`src/dataset.py`](src/dataset.py) — `download_and_prep_jigsaw()` (line 14)
+**File:** [`src/data/dataset.py`](src/data/dataset.py) — `download_and_prep_jigsaw()` (line 14)
 
 After loading, the dataset is processed using HuggingFace's Arrow memory-mapped backend (no full load into RAM):
 
@@ -105,7 +107,7 @@ After loading, the dataset is processed using HuggingFace's Arrow memory-mapped 
 2. **Text cleaning** (line 37): `None` values in `comment_text` are replaced with `""`.
 3. **Identity columns kept as continuous** (lines 41–42): All 24 identity columns (e.g., `asian`, `muslim`, `transgender`) are kept as float values in [0, 1] — **they are NOT binarized** — so that subgroup membership can be graded.
 
-The 24 identity columns are defined in [`src/dataset.py` line 6](src/dataset.py#L6) (`ALL_IDENTITY_COLUMNS`).
+The 24 identity columns are defined in [`src/data/dataset.py` line 6](src/data/dataset.py#L6) (`ALL_IDENTITY_COLUMNS`).
 
 **Which columns are kept:**
 ```
@@ -114,7 +116,7 @@ The 24 identity columns are defined in [`src/dataset.py` line 6](src/dataset.py#
 
 ### 3.3 Train/Validation Split & Saving
 
-Back in [`src/steps/data_step.py`](src/steps/data_step.py#L10-L29):
+Back in [`src/steps/data_step.py`](src/steps/data_step.py):
 
 1. The full dataset is **shuffled** with a fixed `SEED=42` (line 5, 10).
 2. **90/10 split**: first 90% → training set, last 10% → validation set (lines 12–14).
@@ -191,9 +193,9 @@ outputs/results/google_bert_uncased_L-4_H-512_A-8_raw_metrics.csv
 
 ## 6. Step 4 — Fine-Tuning Transformers
 
-**Step file:** [`src/steps/finetune_step.py`](src/steps/finetune_step.py) — `run_finetune_step()` (line 5)
+**Step file:** [`src/steps/finetune_step.py`](src/steps/finetune_step.py) — `run_finetune_step()` (line 6)
 
-This step does **NOT** run training inline — it **spawns a subprocess** per model (line 13–25):
+This step does **NOT** run training inline — it **spawns a subprocess** per model (lines 14–22):
 
 ```bash
 python -m src.train \
@@ -201,25 +203,26 @@ python -m src.train \
   --output_base_dir outputs/finetuned_<safe_name>/ \
   --epochs 1 \
   --batch_size 32 \
-  --seed 42
+  --seed 42 \
+  --train_samples <train_samples>
 ```
 
-**Skip logic** (line 12): If `outputs/finetuned_<safe_name>/small-transformer-toxicity/config.json` already exists, fine-tuning is **skipped** — the existing checkpoint is reused.
+**Skip logic** (line 13): If `outputs/finetuned_<safe_name>/small-transformer-toxicity/config.json` already exists, fine-tuning is **skipped** — the existing checkpoint is reused.
 
 ### The Training Script: `src/train.py`
 
-**File:** [`src/train.py`](src/train.py) — `main()` (line 78)
+**File:** [`src/train.py`](src/train.py) — `main()` (line 80)
 
 #### Data Loading inside train.py
 
-- Calls `download_and_prep_jigsaw("train", cache_dir=...)` (line 99) — downloads/loads from HuggingFace cache.
-- Independently shuffles and splits **90/10** on its own (lines 104–109), independent of the saved data splits in `outputs/data/`.
-- Tokenizes via [`src/dataset.py`](src/dataset.py) `tokenize_jigsaw_dataset()` (line 59):
-  - Loads the tokenizer with `AutoTokenizer.from_pretrained(tokenizer_name, cache_dir=...)` (line 63).
+- Calls `download_and_prep_jigsaw("train", cache_dir=...)` (line 101) — downloads/loads from HuggingFace cache.
+- Independently shuffles and splits **90/10** on its own (lines 106–115), independent of the saved data splits in `outputs/data/`.
+  - If `--train_samples` is provided (and > 0), the dataset is truncated **before** splitting (lines 109–110). Pass `-1` to use the full training set.
+- Tokenizes via [`src/data/dataset.py`](src/data/dataset.py) `tokenize_jigsaw_dataset()`.
   - Pads/truncates to `max_length=128`.
   - Uses HF Arrow memory-mapped `.map()` — no full load into RAM.
-- Wraps tokenized datasets in [`JigsawDataset`](src/dataset.py#L84) (lines 116–117):
-  - `JigsawDataset.__init__()` pre-calculates `identity_matrix` as a NumPy array of shape `(N, num_identities)` (lines 93–97) — this avoids repeated per-step lookups during evaluation.
+- Wraps tokenized datasets in `JigsawDataset` (lines 122–123):
+  - `JigsawDataset.__init__()` pre-calculates `identity_matrix` as a NumPy array of shape `(N, num_identities)` — this avoids repeated per-step lookups during evaluation.
 
 #### Model Loading
 
@@ -256,11 +259,11 @@ outputs/finetuned_<safe_model_name>/small-transformer-toxicity/
 
 #### Metrics During Training
 
-At the end of each epoch, the HuggingFace `Trainer` calls `compute_metrics_wrapper()` (line 148) → `compute_metrics()` (line 27):
+At the end of each epoch, the HuggingFace `Trainer` calls `compute_metrics_wrapper()` (line 155) → `compute_metrics()` (line 29):
 
 1. Extracts predicted probabilities from logits (softmax for 2-class, sigmoid for 1-class).
 2. Retrieves `identity_matrix` from `val_dataset.identity_matrix` (pre-calculated in `JigsawDataset.__init__()`).
-3. Calls `evaluate_models_metrics()` (alias for `evaluate_bias()`) from [`src/evaluator.py`](src/evaluator.py) (line 49).
+3. Calls `evaluate_models_metrics()` (alias for `evaluate_bias()`) from [`src/evaluator.py`](src/evaluator.py).
 4. Returns a dict: `{"roc_auc": <value>, "<identity>_subgroup_auc": ..., "<identity>_subgroup_fnr": ..., "<identity>_subgroup_fpr": ...}` — logged by the Trainer.
 
 ---
@@ -287,7 +290,20 @@ outputs/results/google_bert_uncased_L-4_H-512_A-8_finetuned_metrics.csv
 
 ---
 
-## 8. Step 6 — LLaMA Zero-Shot Evaluation
+## 8. Step 6 — out-of-domain Evaluation
+
+**Step file:** [`src/steps/eval_ood_step.py`](src/steps/eval_ood_step.py) — `run_eval_ood_step()`
+
+Evaluates fine-tuned models on an **out-of-domain** (OOD) test set to measure generalization beyond the training distribution. Uses the same evaluation infrastructure as `eval-finetuned` (`src/steps/utils.py`), but loads a separate held-out dataset (ToxiGen).
+
+- Accepts `--eval_samples` to limit the OOD evaluation set size. Pass `-1` to evaluate on the **full** OOD set.
+- Results saved to: `outputs/results/<model>_ood_metrics.csv`
+
+> **Note:** This step is not included in `--step all`; it must be run explicitly with `--step eval-ood`.
+
+---
+
+## 9. Step 7 — LLaMA Zero-Shot Evaluation
 
 **Step file:** [`src/steps/llama_step.py`](src/steps/llama_step.py) — `run_llama_step()` (line 41)
 
@@ -323,7 +339,7 @@ outputs/results/meta-llama_Llama-3.2-1B_raw_metrics.csv
 
 ---
 
-## 9. Step 7 — Report Generation
+## 10. Step 8 — Report Generation
 
 **Step file:** [`src/steps/report_step.py`](src/steps/report_step.py) — `run_report_step()` (line 66)
 
@@ -349,7 +365,7 @@ outputs/results/final_report.csv   ← Wide CSV with all models × all metrics
 
 ---
 
-## 10. Directory Layout & Saved Artifacts
+## 11. Directory Layout & Saved Artifacts
 
 ```
 outputs/                                      ← --output_dir
@@ -387,9 +403,9 @@ outputs/                                      ← --output_dir
 
 ---
 
-## 11. Evaluation Metrics Deep-Dive
+## 12. Evaluation Metrics Deep-Dive
 
-All metric computation goes through [`src/evaluator.py`](src/evaluator.py) — the core function is `evaluate_bias()` (line 37), aliased as `evaluate_models_metrics` (line 93).
+All metric computation goes through [`src/evaluator.py`](src/evaluator.py) — the core function is `evaluate_bias()`, aliased as `evaluate_models_metrics`.
 
 ### Inputs
 
@@ -427,7 +443,7 @@ For each identity (one row per identity in the output DataFrame):
 
 ---
 
-## 12. Understanding the Output
+## 13. Understanding the Output
 
 ### Per-Step CSVs (`outputs/results/*.csv`)
 
@@ -472,18 +488,18 @@ This is the primary artifact for the research paper/report, showing how bias cha
 
 ---
 
-## 13. Reproducibility
+## 14. Reproducibility
 
 The pipeline uses multiple layered mechanisms to ensure reproducibility:
 
 | Mechanism | Location | Detail |
 |---|---|---|
-| Global seed | [`main.py` line 29](main.py#L29) | `set_seed(args.seed)` from `transformers` |
-| CuDNN determinism | [`main.py` lines 31–32](main.py#L31-L32) | `deterministic=True`, `benchmark=False` |
-| Dataset shuffle seed | [`src/steps/data_step.py` line 5](src/steps/data_step.py#L5) | Fixed `SEED=42` for the 90/10 split |
-| Trainer seed | [`src/train.py` line 141](src/train.py#L141) | `seed=args.seed` passed to `TrainingArguments` |
-| Baseline seed | [`src/steps/baseline_step.py` line 26](src/steps/baseline_step.py#L26) | `random_state=42` in `LogisticRegression` |
-| Checkpoint skip | [`src/steps/finetune_step.py` line 12](src/steps/finetune_step.py#L12) | If fine-tuned model exists, skip re-training |
+| Global seed | [`main.py` line 27](main.py#L27) | `set_seed(args.seed)` from `transformers` |
+| CuDNN determinism | [`main.py` lines 28–30](main.py#L28-L30) | `deterministic=True`, `benchmark=False` |
+| Dataset shuffle seed | [`src/steps/data_step.py`](src/steps/data_step.py) | Fixed `SEED=42` for the 90/10 split |
+| Trainer seed | [`src/train.py` line 147](src/train.py#L147) | `seed=args.seed` passed to `TrainingArguments` |
+| Baseline seed | [`src/steps/baseline_step.py`](src/steps/baseline_step.py) | `random_state=42` in `LogisticRegression` |
+| Checkpoint skip | [`src/steps/finetune_step.py` line 13](src/steps/finetune_step.py#L13) | If fine-tuned model exists, skip re-training |
 
 ---
 
@@ -493,16 +509,16 @@ The pipeline uses multiple layered mechanisms to ensure reproducibility:
 |---|---|---|---|
 | `main()` | [`main.py`](main.py) | 8 | CLI entry point, orchestrates all steps |
 | `run_data_step()` | [`src/steps/data_step.py`](src/steps/data_step.py) | 7 | Load, split, and save dataset to disk |
-| `get_jigsaw_dataset()` | [`src/data_loader.py`](src/data_loader.py) | 11 | Download dataset from HuggingFace mirror |
-| `get_hf_token()` | [`src/data_utils.py`](src/data_utils.py) | 27 | Fetch HuggingFace API token |
-| `download_and_prep_jigsaw()` | [`src/dataset.py`](src/dataset.py) | 14 | Binarize toxicity, clean identities |
-| `tokenize_jigsaw_dataset()` | [`src/dataset.py`](src/dataset.py) | 59 | Tokenize text with HF tokenizer |
-| `JigsawDataset` | [`src/dataset.py`](src/dataset.py) | 84 | PyTorch Dataset wrapper; pre-caches identity_matrix |
+| `get_jigsaw_dataset()` | [`src/data/data_loader.py`](src/data/data_loader.py) | 11 | Download dataset from HuggingFace mirror |
+| `get_hf_token()` | [`src/data/data_utils.py`](src/data/data_utils.py) | 27 | Fetch HuggingFace API token |
+| `download_and_prep_jigsaw()` | [`src/data/dataset.py`](src/data/dataset.py) | 14 | Binarize toxicity, clean identities |
+| `tokenize_jigsaw_dataset()` | [`src/data/dataset.py`](src/data/dataset.py) | 59 | Tokenize text with HF tokenizer |
+| `JigsawDataset` | [`src/data/dataset.py`](src/data/dataset.py) | 84 | PyTorch Dataset wrapper; pre-caches identity_matrix |
 | `run_baseline_step()` | [`src/steps/baseline_step.py`](src/steps/baseline_step.py) | 9 | Train and evaluate TF-IDF + LogReg |
 | `run_eval_raw_step()` | [`src/steps/eval_raw_step.py`](src/steps/eval_raw_step.py) | 6 | Evaluate untrained transformer models |
 | `run_finetune_step()` | [`src/steps/finetune_step.py`](src/steps/finetune_step.py) | 5 | Launch fine-training subprocess per model |
-| `main()` | [`src/train.py`](src/train.py) | 78 | Training loop via HuggingFace Trainer |
-| `compute_metrics()` | [`src/train.py`](src/train.py) | 27 | Metrics hook called by Trainer after each epoch |
+| `main()` | [`src/train.py`](src/train.py) | 80 | Training loop via HuggingFace Trainer |
+| `compute_metrics()` | [`src/train.py`](src/train.py) | 29 | Metrics hook called by Trainer after each epoch |
 | `run_eval_ft_step()` | [`src/steps/eval_ft_step.py`](src/steps/eval_ft_step.py) | 6 | Evaluate fine-tuned model checkpoints |
 | `get_llama_toxicity_scores()` | [`src/steps/llama_step.py`](src/steps/llama_step.py) | 9 | Zero-shot scoring via Yes/No token probs |
 | `run_llama_step()` | [`src/steps/llama_step.py`](src/steps/llama_step.py) | 41 | Orchestrate LLaMA evaluation |
@@ -515,5 +531,5 @@ The pipeline uses multiple layered mechanisms to ensure reproducibility:
 | `compute_fpr()` | [`src/evaluator.py`](src/evaluator.py) | 29 | False Positive Rate |
 | `run_report_step()` | [`src/steps/report_step.py`](src/steps/report_step.py) | 66 | Combine all CSVs into final comparison table |
 | `format_final_report()` | [`src/steps/report_step.py`](src/steps/report_step.py) | 4 | Print 4-section comparison report to stdout |
-| `get_model_pair()` | [`src/model_manager.py`](src/model_manager.py) | 5 | Load raw + placeholder fine-tuned model pair |
-| `train_model()` | [`src/model_manager.py`](src/model_manager.py) | 26 | Utility wrapper around HuggingFace Trainer |
+| `get_model_pair()` | [`src/model/model_manager.py`](src/model/model_manager.py) | 5 | Load raw + placeholder fine-tuned model pair |
+| `train_model()` | [`src/model/model_manager.py`](src/model/model_manager.py) | 26 | Utility wrapper around HuggingFace Trainer |
