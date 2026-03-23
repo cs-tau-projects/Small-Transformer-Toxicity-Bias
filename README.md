@@ -64,20 +64,31 @@ python main.py --step eval-finetuned
 # 6. Evaluate the LLaMA model (requires High-VRAM GPU)
 python main.py --step llama
 
-# 7. Aggregate all saved metrics from the above steps and generate final report
+# 7. Aggregate all saved metrics from the above steps and generate report
 python main.py --step report
 ```
+
+### Running with a Configuration File
+For better reproducibility and experiment management, you can use a YAML configuration file to define all your parameters. This is the recommended approach for running a full experiment.
+
+You can define a new experiment by creating a new file in the `configs/` directory. Then, run the entire pipeline using the `--config` flag:
+
+```bash
+# Run the full pipeline using the parameters from the baseline config
+python main.py --config configs/bert_baseline.yaml
+```
+You can still override specific parameters with command-line flags. For example, to run only the `finetune` step with the config:
+```bash
+python main.py --config configs/bert_baseline.yaml --step finetune
+```
+
+Each run will append its results to a master log file at `outputs/results/results.csv`. This file is designed for easy analysis and comparison of different experiment runs.
 
 ### Key CLI Flags
 
 | Flag | Default | Description |
 |---|---|---|
-| `--train_samples` | `20000` | Max number of training samples used for the baseline and fine-tuning steps. Pass `-1` to train on the **full** training set. |
-| `--eval_samples` | `5000` | Max number of evaluation samples used across all evaluation steps. Pass `-1` to evaluate on the **full** evaluation set. |
-| `--seed` | `42` | Global random seed for reproducibility. |
-| `--output_dir` | `./outputs` | Root directory for all caches, data, models, and results. |
-| `--models` | 3 small transformers | Space-separated list of HuggingFace model identifiers to fine-tune and evaluate. |
-| `--step` | `all` | Pipeline step to run: `data`, `baseline`, `eval-raw`, `finetune`, `eval-finetuned`, `eval-ood`, `llama`, `report`, or `all`. |
+| `--config` | `None` | Path to a YAML configuration file to define experiment parameters. |
 
 > **Tip:** Use `--train_samples -1 --eval_samples -1` to run the full pipeline without any data sub-sampling.
 

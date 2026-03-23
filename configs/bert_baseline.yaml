@@ -1,0 +1,27 @@
+# Experiment Configuration: BERT Baseline
+
+# Experiment metadata
+experiment_name: "bert_baseline"
+seed: 42
+
+# Model configuration
+model:
+  name: "bert-base-uncased"
+  max_length: 256
+
+# Data configuration
+data:
+  train_batch_size: 16
+  val_batch_size: 32
+  data_path: "outputs/data" # Assuming data is preprocessed here
+
+# Training configuration
+training:
+  epochs: 3
+  learning_rate: 2e-5
+  optimizer: "AdamW"
+  scheduler: "linear" # Options: linear, cosine, constant
+
+# Output configuration
+output_dir: "outputs/results"
+checkpoint_dir: "outputs/models"
