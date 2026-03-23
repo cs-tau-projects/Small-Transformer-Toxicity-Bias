@@ -13,7 +13,6 @@ def get_jigsaw_dataset(split="train", cache_dir=None):
     Loads the Google Jigsaw Unintended Bias dataset.
     Returns the Hugging Face Dataset object.
     """
-    print(f"Loading '{split}' split of Google Jigsaw Unintended Bias dataset...")
     
     if cache_dir is None:
         try:

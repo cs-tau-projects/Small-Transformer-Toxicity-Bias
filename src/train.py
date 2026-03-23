@@ -20,6 +20,8 @@ def parse_args():
     parser.add_argument("--epochs", type=float, default=3.0, help="Number of training epochs.")
     parser.add_argument("--batch_size", type=int, default=32, help="Batch size for training and eval.")
     parser.add_argument("--learning_rate", type=float, default=2e-5, help="Learning rate.")
+    parser.add_argument("--train_samples", type=int, default=-1,
+                        help="Max training samples to use (-1 for all).")
     
     # We will compute metrics every epoch
     return parser.parse_args()
@@ -103,6 +105,10 @@ def main():
     # let's split the train set for a robust validation set.
     train_hf = train_hf.shuffle(seed=args.seed)
     
+    # Apply train_samples limit before splitting
+    if args.train_samples > 0 and len(train_hf) > args.train_samples:
+        train_hf = train_hf.select(range(args.train_samples))
+    
     # Let's use 10% for validation
     split_idx = int(0.9 * len(train_hf))
     train_split = train_hf.select(range(split_idx))
@@ -141,6 +147,7 @@ def main():
         seed=args.seed,
         fp16=torch.cuda.is_available(), # use mixed precision if GPU available
         logging_steps=10,               # Log more frequently
+        log_level="error",              # Suppress per-step loss/grad_norm prints
         disable_tqdm=False              # Explicitly ensure Trainer progress bar is enabled
     )
     
