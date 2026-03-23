@@ -4,17 +4,9 @@ from sklearn.pipeline import Pipeline
 import joblib
 import os
 
-from src.dataset import download_and_prep_jigsaw
 
-def train_baseline(model_save_path="models/baseline_model.joblib"):
-    print("Loading Baseline Logistic Regression training data...")
-    train_ds, identity_columns = download_and_prep_jigsaw(split='train')
-    
-    # We use memory-mapped lists which is efficient
-    print("Extracting features from dataset...")
-    X_train = train_ds['comment_text']
-    y_train = train_ds['is_toxic']
-    
+
+def train_baseline(X_train, y_train, model_save_path="models/baseline_model.joblib"):
     print("Training Logistic Regression Model with TF-IDF...")
     pipeline = Pipeline([
         ('tfidf', TfidfVectorizer(max_features=10000, stop_words='english')),
@@ -27,6 +19,7 @@ def train_baseline(model_save_path="models/baseline_model.joblib"):
     os.makedirs(os.path.dirname(model_save_path), exist_ok=True)
     joblib.dump(pipeline, model_save_path)
     print("Model saved successfully.")
+    return pipeline
 
 def run_baseline(test_ds, model_load_path="models/baseline_model.joblib"):
     """
@@ -47,16 +40,4 @@ def run_baseline(test_ds, model_load_path="models/baseline_model.joblib"):
     
     return y_pred_probs
 
-def main():
-    import argparse
-    parser = argparse.ArgumentParser(description="Baseline pipeline for toxicity classification")
-    parser.add_argument('--train', action='store_true', help='Train the baseline model')
-    args = parser.parse_args()
-    
-    if args.train:
-        train_baseline()
-    else:
-        print("Specify --train to train the model. For evaluation, use run_baseline function imported via other scripts.")
 
-if __name__ == "__main__":
-    main()
