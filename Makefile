@@ -21,6 +21,9 @@ install:
 test:
 	pytest tests/
 
+small-run:
+	python main.py --models distilbert-base-uncased --train_samples 20000 --eval_samples 5000
+
 run-all:
 	python main.py --step all
 

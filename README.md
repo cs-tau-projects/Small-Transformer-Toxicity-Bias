@@ -68,6 +68,19 @@ python main.py --step llama
 python main.py --step report
 ```
 
+### Key CLI Flags
+
+| Flag | Default | Description |
+|---|---|---|
+| `--train_samples` | `20000` | Max number of training samples used for the baseline and fine-tuning steps. Pass `-1` to train on the **full** training set. |
+| `--eval_samples` | `5000` | Max number of evaluation samples used across all evaluation steps. Pass `-1` to evaluate on the **full** evaluation set. |
+| `--seed` | `42` | Global random seed for reproducibility. |
+| `--output_dir` | `./outputs` | Root directory for all caches, data, models, and results. |
+| `--models` | 3 small transformers | Space-separated list of HuggingFace model identifiers to fine-tune and evaluate. |
+| `--step` | `all` | Pipeline step to run: `data`, `baseline`, `eval-raw`, `finetune`, `eval-finetuned`, `eval-ood`, `llama`, `report`, or `all`. |
+
+> **Tip:** Use `--train_samples -1 --eval_samples -1` to run the full pipeline without any data sub-sampling.
+
 ### University Cluster Usage
 When running on the SLURM cluster, make sure to point the output directory to the persistent storage:
 

@@ -1,6 +1,7 @@
 datasets
 transformers
 torch
+accelerate>=1.1.0
 pandas
 scikit-learn
 pyarrow
