@@ -1,6 +1,6 @@
 import os
 import json
-from src.dataset import download_and_prep_jigsaw
+from src.data.dataset import download_and_prep_jigsaw
 
 SEED = 42  # Fixed seed for reproducible dataset splits
 

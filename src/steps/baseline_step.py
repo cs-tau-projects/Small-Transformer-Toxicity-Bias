@@ -1,11 +1,9 @@
 import os
 import numpy as np
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.linear_model import LogisticRegression
-from sklearn.pipeline import Pipeline
 import joblib
 from src.evaluator import evaluate_bias
 from src.steps.utils import load_saved_data
+from src.model.baseline import train_baseline
 
 def run_baseline_step(data_dir, results_dir):
     baseline_train_ds, eval_ds, identity_columns = load_saved_data(data_dir)
@@ -22,12 +20,10 @@ def run_baseline_step(data_dir, results_dir):
     identities_val = [eval_ds[col] for col in identity_columns]
     identity_matrix_val = np.array(identities_val).T
     
-    pipeline = Pipeline([
-        ('tfidf', TfidfVectorizer(max_features=10000, stop_words='english')),
-        ('clf', LogisticRegression(max_iter=1000, class_weight='balanced', random_state=42))
-    ])
-    
-    pipeline.fit(X_train, y_train)
+    # Save the pipeline for OOD evaluation
+    pipeline_path = os.path.join(results_dir, "baseline_pipeline.joblib")
+
+    pipeline = train_baseline(X_train, y_train, model_save_path=pipeline_path)
     
     print("Evaluating Baseline...")
     y_pred_probs = pipeline.predict_proba(X_val)[:, 1]
@@ -43,8 +39,3 @@ def run_baseline_step(data_dir, results_dir):
     out_path = os.path.join(results_dir, "baseline_metrics.csv")
     metrics_df.to_csv(out_path, index=False)
     print(f"Saved Baseline metrics to {out_path}")
-    
-    # Save the pipeline for OOD evaluation
-    pipeline_path = os.path.join(results_dir, "baseline_pipeline.joblib")
-    joblib.dump(pipeline, pipeline_path)
-    print(f"Saved Baseline pipeline to {pipeline_path}")

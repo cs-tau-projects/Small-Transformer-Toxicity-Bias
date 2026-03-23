@@ -9,8 +9,6 @@ venv/
 *.log
 
 # Data and Models
-data/
-models/
 checkpoints/
 .hf_cache/
 *.bin

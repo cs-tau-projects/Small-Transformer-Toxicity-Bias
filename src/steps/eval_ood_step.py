@@ -3,7 +3,7 @@ import pandas as pd
 import torch
 from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
-from src.data_utils import get_hf_token
+from src.data.data_utils import get_hf_token
 import numpy as np
 from src.evaluator import evaluate_bias
 import joblib

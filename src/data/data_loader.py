@@ -6,7 +6,7 @@ import os
 import sys
 import getpass
 from datasets import load_dataset
-from src.data_utils import get_hf_token
+from src.data.data_utils import get_hf_token
 
 def get_jigsaw_dataset(split="train", cache_dir=None):
     """

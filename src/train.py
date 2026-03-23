@@ -8,8 +8,8 @@ from transformers import (
     Trainer,
     set_seed
 )
-from src.dataset import download_and_prep_jigsaw, tokenize_jigsaw_dataset, JigsawDataset
-from src.data_utils import get_hf_token
+from src.data.dataset import download_and_prep_jigsaw, tokenize_jigsaw_dataset, JigsawDataset
+from src.data.data_utils import get_hf_token
 from src.evaluator import evaluate_models_metrics
 
 def parse_args():
