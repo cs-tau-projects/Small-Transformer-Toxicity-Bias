@@ -38,4 +38,10 @@ def run_baseline_step(data_dir, results_dir):
     
     out_path = os.path.join(results_dir, "baseline_metrics.csv")
     metrics_df.to_csv(out_path, index=False)
-    print(f"Saved Baseline metrics to {out_path}")
+    
+    import pandas as pd
+    preds_df = pd.DataFrame({'comment_text': eval_ds['comment_text'], 'toxicity_score': y_pred_probs})
+    preds_out_path = os.path.join(results_dir, "preds_Baseline.csv")
+    preds_df.to_csv(preds_out_path, index=False)
+    
+    print(f"Saved Baseline metrics to {out_path} and predictions to {preds_out_path}")
