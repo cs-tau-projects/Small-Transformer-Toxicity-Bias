@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import torch
+import pandas as pd
 from tqdm import tqdm
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from src.steps.utils import load_saved_data
@@ -69,6 +70,12 @@ def run_llama_step(data_dir, results_dir, cache_dir, llama_model, device):
         safe_name = llama_model.replace("/", "_")
         out_path = os.path.join(results_dir, f"{safe_name}_raw_metrics.csv")
         metrics_df.to_csv(out_path, index=False)
-        print(f"Saved LLaMA metrics to {out_path}")
+        
+
+        preds_df = pd.DataFrame({'comment_text': eval_ds['comment_text'], 'toxicity_score': y_pred_probs})
+        preds_out_path = os.path.join(results_dir, f"preds_{safe_name}_llama.csv")
+        preds_df.to_csv(preds_out_path, index=False)
+        
+        print(f"Saved LLaMA metrics to {out_path} and predictions to {preds_out_path}")
     except Exception as e:
         print(f"Error evaluating LLaMA model: {e}")

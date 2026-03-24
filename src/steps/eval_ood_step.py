@@ -105,7 +105,11 @@ def load_toxigen_dataset(cache_dir, eval_samples=-1):
     """Loads and standardizes labels for the ToxiGen dataset."""
     print("Loading ToxiGen dataset from Hugging Face...")
     try:
-        toxigen = load_dataset("skg/toxigen-data", name="train", cache_dir=cache_dir, split="test", token=get_hf_token())
+        dataset = load_dataset("skg/toxigen-data", name="train", cache_dir=cache_dir, split="train", token=get_hf_token())
+        if "split" in dataset.column_names:
+            toxigen = dataset.filter(lambda x: x["split"] == "test")
+        else:
+            toxigen = dataset
     except Exception as e:
         print(f"Could not load skg/toxigen-data: {e}")
         print("Attempting to load standard 'toxigen/toxigen-data'...")
@@ -127,6 +131,8 @@ def load_toxigen_dataset(cache_dir, eval_samples=-1):
          df['label'] = df['toxicity']
     elif 'toxicity_score' in df.columns:
          df['label'] = df['toxicity_score'].apply(lambda x: 1 if x >= 0.5 else 0)
+    elif 'roberta_prediction' in df.columns:
+         df['label'] = df['roberta_prediction'].apply(lambda x: 1 if float(x) >= 0.5 else 0)
     else:
         print(f"Warning: Could not identify label column. Available columns: {df.columns}")
         try:
@@ -137,6 +143,12 @@ def load_toxigen_dataset(cache_dir, eval_samples=-1):
     if eval_samples > 0:
         if len(df) > eval_samples:
             df = df.sample(n=eval_samples, random_state=42).reset_index(drop=True)
+            
+    # Standardize input text column globally 
+    if 'text' not in df.columns and 'generation' in df.columns:
+        df['text'] = df['generation']
+    elif 'text' not in df.columns and 'comment_text' in df.columns:
+         df['text'] = df['comment_text']
             
     print(f"Loaded {len(df)} samples from ToxiGen for OOD evaluation.")
     return df
@@ -163,7 +175,14 @@ def eval_baseline_ood(results_dir, df):
             df_with_preds['toxicity_score'] = y_pred_probs
             df_with_preds['label'] = df['label']
             
-            return extract_toxigen_identities_and_evaluate('Baseline (TF-IDF + LR)', df_with_preds)
+            metrics_df = extract_toxigen_identities_and_evaluate('Baseline (TF-IDF + LR)', df_with_preds)
+            
+            preds_df = df_with_preds[['text', 'toxicity_score']]
+            preds_out_path = os.path.join(results_dir, "preds_Baseline_ood.csv")
+            preds_df.to_csv(preds_out_path, index=False)
+            print(f"Saved Baseline OOD predictions to {preds_out_path}")
+            
+            return metrics_df
         else:
             print("Warning: Could not find text column in ToxiGen dataset for baseline evaluation.")
             return None
@@ -211,15 +230,14 @@ def run_eval_ood_step(results_dir, cache_dir, output_dir, models, device, eval_s
                 )
                 ft_model.to(device)
                 
-                # Standardize input text column
-                if 'text' not in df.columns and 'generation' in df.columns:
-                    df['text'] = df['generation']
-                elif 'text' not in df.columns and 'comment_text' in df.columns:
-                     df['text'] = df['comment_text']
-                     
                 df_with_preds = eval_transformer_ood(f"Fine-Tuned {base_model_name}", ft_model, tokenizer, df.copy(), device)
                 metrics_df = extract_toxigen_identities_and_evaluate(base_model_name, df_with_preds)
                 summary_results.append(metrics_df)
+                
+                preds_df = df_with_preds[['text', 'toxicity_score']]
+                preds_out_path = os.path.join(results_dir, f"preds_{safe_name}_finetuned_ood.csv")
+                preds_df.to_csv(preds_out_path, index=False)
+                print(f"Saved Finetuned {base_model_name} OOD predictions to {preds_out_path}")
                 
             except Exception as e:
                 print(f"Error evaluating fine-tuned model {base_model_name} on OOD data: {e}")

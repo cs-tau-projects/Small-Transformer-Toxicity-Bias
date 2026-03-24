@@ -1,4 +1,5 @@
 import os
+import pandas as pd
 from tqdm import tqdm
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from src.steps.utils import load_saved_data, eval_transformer
@@ -29,11 +30,16 @@ def run_eval_ft_step(data_dir, results_dir, cache_dir, output_dir, models, devic
                 ft_model = AutoModelForSequenceClassification.from_pretrained(
                     model_load_path, num_labels=2, cache_dir=cache_dir
                 )
-                ft_df = eval_transformer(f"Fine-Tuned {base_model_name}", ft_model, tokenizer, eval_ds, identity_columns, device)
+                ft_df, y_pred_probs = eval_transformer(f"Fine-Tuned {base_model_name}", ft_model, tokenizer, eval_ds, identity_columns, device)
                 
                 out_path = os.path.join(results_dir, f"{safe_name}_finetuned_metrics.csv")
                 ft_df.to_csv(out_path, index=False)
-                print(f"Saved metrics to {out_path}")
+                
+                preds_df = pd.DataFrame({'comment_text': eval_ds['comment_text'], 'toxicity_score': y_pred_probs})
+                preds_out_path = os.path.join(results_dir, f"preds_{safe_name}_finetuned.csv")
+                preds_df.to_csv(preds_out_path, index=False)
+                
+                print(f"Saved metrics to {out_path} and predictions to {preds_out_path}")
             except Exception as e:
                 print(f"Error loading fine-tuned model {base_model_name}: {e}")
         else:

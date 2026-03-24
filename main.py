@@ -64,7 +64,7 @@ def main():
         from src.steps.eval_ft_step import run_eval_ft_step
         run_eval_ft_step(data_dir, results_dir, cache_dir, args.output_dir, args.models, device)
 
-    if args.step == "eval-ood":
+    if args.step in ["eval-ood", "all"]:
         from src.steps.eval_ood_step import run_eval_ood_step
         run_eval_ood_step(results_dir, cache_dir, args.output_dir, args.models, device, args.eval_samples)
 
@@ -74,7 +74,7 @@ def main():
 
     if args.step in ["report", "all"]:
         from src.steps.report_step import run_report_step
-        run_report_step(results_dir, args.llama_model, args.models)
+        run_report_step(data_dir, results_dir, cache_dir, args.llama_model, args.models, args.eval_samples)
 
 if __name__ == "__main__":
     main()

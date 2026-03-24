@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+from src.steps.utils import load_saved_data
 
 def format_final_report(all_results_dict):
     """Combines metrics from all models into a comparative table suitable for an ACL report."""
@@ -63,7 +64,7 @@ def format_final_report(all_results_dict):
     return final_df
 
 
-def run_report_step(results_dir, llama_model, models):
+def run_report_step(data_dir, results_dir, cache_dir, llama_model, models, eval_samples):
     print(f"\nGenerating Report from {results_dir}...")
     all_results_dict = {}
     
@@ -94,3 +95,67 @@ def run_report_step(results_dir, llama_model, models):
         out_path = os.path.join(results_dir, "final_report.csv")
         final_df.to_csv(out_path, index=False)
         print(f"Saved final report to {out_path}")
+        
+    print("\nCompiling single aggregated final_predictions.csv...")
+    try:
+        from src.steps.eval_ood_step import load_toxigen_dataset
+        _, eval_ds, _ = load_saved_data(data_dir)
+        jigsaw_df = pd.DataFrame({
+            'sentence': eval_ds['comment_text'],
+            'dataset': 'Jigsaw',
+            'true_label': eval_ds['is_toxic']
+        })
+        
+        try:
+            toxigen = load_toxigen_dataset(cache_dir, eval_samples)
+            if 'text' in toxigen.columns:
+                t_text = toxigen['text']
+            elif 'generation' in toxigen.columns:
+                t_text = toxigen['generation']
+            elif 'comment_text' in toxigen.columns:
+                t_text = toxigen['comment_text']
+            if 'label' in toxigen.columns:
+                t_label = toxigen['label']
+            else:
+                t_label = [pd.NA] * len(toxigen)
+            toxigen_df = pd.DataFrame({
+                'sentence': t_text,
+                'dataset': 'ToxiGen',
+                'true_label': t_label
+            })
+        except Exception as e:
+            print(f"Warning: Could not load toxigen dataset for final predictions compilation: {e}")
+            toxigen_df = pd.DataFrame(columns=['sentence', 'dataset', 'true_label'])
+            
+        def try_merge(base_df, expected_name, pred_file):
+            pred_path = os.path.join(results_dir, pred_file)
+            if os.path.exists(pred_path):
+                preds = pd.read_csv(pred_path)
+                if len(preds) == len(base_df):
+                    base_df[expected_name] = (preds['toxicity_score'].values >= 0.5).astype(int)
+                else:
+                    base_df[expected_name] = pd.NA
+            else:
+                base_df[expected_name] = pd.NA
+                
+        for model_name in models:
+            safe = model_name.replace("/", "_")
+            try_merge(jigsaw_df, f"Raw {model_name}", f"preds_{safe}_raw.csv")
+            try_merge(jigsaw_df, f"Fine-tuned {model_name}", f"preds_{safe}_finetuned.csv")
+            try_merge(toxigen_df, f"Raw {model_name}", f"preds_{safe}_raw_ood.csv")
+            try_merge(toxigen_df, f"Fine-tuned {model_name}", f"preds_{safe}_finetuned_ood.csv")
+            
+        try_merge(jigsaw_df, "Baseline", "preds_Baseline.csv")
+        try_merge(toxigen_df, "Baseline", "preds_Baseline_ood.csv")
+        
+        safe_llama = llama_model.replace("/", "_")
+        try_merge(jigsaw_df, llama_model, f"preds_{safe_llama}_llama.csv")
+        try_merge(toxigen_df, llama_model, f"preds_{safe_llama}_llama_ood.csv")
+
+        final_preds = pd.concat([jigsaw_df, toxigen_df], ignore_index=True)
+        out_path = os.path.join(results_dir, "final_predictions.csv")
+        final_preds.to_csv(out_path, index=False)
+        print(f"Saved compiled predictions to {out_path}")
+        
+    except Exception as e:
+        print(f"Error compiling final predictions csv: {e}")

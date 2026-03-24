@@ -62,4 +62,4 @@ def eval_transformer(model_desc, model, tokenizer, val_ds, identity_columns, dev
         identity_columns=identity_columns,
         threshold=0.5
     )
-    return metrics_df
+    return metrics_df, y_pred_probs
