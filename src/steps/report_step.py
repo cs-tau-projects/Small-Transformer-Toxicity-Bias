@@ -64,7 +64,7 @@ def format_final_report(all_results_dict):
     return final_df
 
 
-def run_report_step(data_dir, results_dir, cache_dir, llama_model, models, eval_samples):
+def run_report_step(data_dir, results_dir, cache_dir, llama_model, models, eval_samples, seed=42):
     print(f"\nGenerating Report from {results_dir}...")
     all_results_dict = {}
     
@@ -107,7 +107,7 @@ def run_report_step(data_dir, results_dir, cache_dir, llama_model, models, eval_
         })
         
         try:
-            toxigen = load_toxigen_dataset(cache_dir, eval_samples)
+            toxigen = load_toxigen_dataset(cache_dir, eval_samples, seed=seed)
             if 'text' in toxigen.columns:
                 t_text = toxigen['text']
             elif 'generation' in toxigen.columns:

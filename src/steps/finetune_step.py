@@ -3,7 +3,7 @@ import subprocess
 import sys
 from tqdm import tqdm
 
-def run_finetune_step(models, output_dir, seed=42, train_samples=-1):
+def run_finetune_step(models, output_dir, seed=42, train_samples=-1, data_dir=None):
     for base_model_name in tqdm(models, desc="Fine-tuning models"):
         print(f"\nTriggering fine-tuning for {base_model_name}...")
         safe_name = base_model_name.replace("/", "_")
@@ -20,6 +20,11 @@ def run_finetune_step(models, output_dir, seed=42, train_samples=-1):
                 "--seed", str(seed),
                 "--train_samples", str(train_samples)
             ]
+            
+            # Forward the pre-saved data splits dir so train.py uses the same
+            # 90/10 split as all other pipeline steps (fixes SEED-2 data split inconsistency)
+            if data_dir and os.path.isdir(data_dir):
+                cmd += ["--data_dir", data_dir]
             
             # Force Hugging Face Trainer to show its internal step progress bar
             env = os.environ.copy()

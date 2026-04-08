@@ -46,7 +46,7 @@ def main():
     
     if args.step in ["data", "all"]:
         from src.steps.data_step import run_data_step
-        run_data_step(cache_dir, data_dir, args.train_samples, args.eval_samples)
+        run_data_step(cache_dir, data_dir, args.train_samples, args.eval_samples, seed=args.seed)
 
     if args.step in ["baseline", "all"]:
         from src.steps.baseline_step import run_baseline_step
@@ -58,7 +58,7 @@ def main():
 
     if args.step in ["finetune", "all"]:
         from src.steps.finetune_step import run_finetune_step
-        run_finetune_step(args.models, args.output_dir, seed=args.seed, train_samples=args.train_samples)
+        run_finetune_step(args.models, args.output_dir, seed=args.seed, train_samples=args.train_samples, data_dir=data_dir)
 
     if args.step in ["eval-finetuned", "all"]:
         from src.steps.eval_ft_step import run_eval_ft_step
@@ -66,7 +66,7 @@ def main():
 
     if args.step in ["eval-ood", "all"]:
         from src.steps.eval_ood_step import run_eval_ood_step
-        run_eval_ood_step(results_dir, cache_dir, args.output_dir, args.models, device, args.eval_samples)
+        run_eval_ood_step(results_dir, cache_dir, args.output_dir, args.models, device, args.eval_samples, seed=args.seed)
 
     if args.step in ["llama", "all"]:
         from src.steps.llama_step import run_llama_step
@@ -74,7 +74,7 @@ def main():
 
     if args.step in ["report", "all"]:
         from src.steps.report_step import run_report_step
-        run_report_step(data_dir, results_dir, cache_dir, args.llama_model, args.models, args.eval_samples)
+        run_report_step(data_dir, results_dir, cache_dir, args.llama_model, args.models, args.eval_samples, seed=args.seed)
 
 if __name__ == "__main__":
     main()

@@ -17,6 +17,9 @@ def parse_args():
     parser.add_argument("--model_name", type=str, default="distilbert-base-uncased", help="Model name.")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility.")
     parser.add_argument("--output_base_dir", type=str, required=True, help="Base directory for output and cache.")
+    parser.add_argument("--data_dir", type=str, default=None,
+                        help="Path to pre-saved data splits (outputs/data/). When set, skips re-downloading "
+                             "and uses the same splits as all other pipeline steps.")
     parser.add_argument("--epochs", type=float, default=3.0, help="Number of training epochs.")
     parser.add_argument("--batch_size", type=int, default=32, help="Batch size for training and eval.")
     parser.add_argument("--learning_rate", type=float, default=2e-5, help="Learning rate.")
@@ -98,21 +101,36 @@ def main():
     print(f"Using output_dir: {output_dir}")
     
     # 2. Load and Prepare Data
-    train_hf, identity_columns = download_and_prep_jigsaw("train", cache_dir=cache_dir)
-    # Using part of train as validation to mimic the prompt, or test split if you have access to true labels
-    # We will split train by taking an 80/20 or similar for the sake of true evaluation. 
-    # Since Jigsaw often hides test labels or they aren't fully available on all mirrors, 
-    # let's split the train set for a robust validation set.
-    train_hf = train_hf.shuffle(seed=args.seed)
-    
-    # Apply train_samples limit before splitting
-    if args.train_samples > 0 and len(train_hf) > args.train_samples:
-        train_hf = train_hf.select(range(args.train_samples))
-    
-    # Let's use 10% for validation
-    split_idx = int(0.9 * len(train_hf))
-    train_split = train_hf.select(range(split_idx))
-    val_split = train_hf.select(range(split_idx, len(train_hf)))
+    if args.data_dir and os.path.isdir(args.data_dir):
+        # --- Preferred path: reuse the splits already created by data_step ---
+        # This guarantees training and evaluation see the exact same val split.
+        from datasets import load_from_disk
+        import json
+        print(f"Loading pre-saved data splits from {args.data_dir}...")
+        train_hf = load_from_disk(os.path.join(args.data_dir, "baseline_train"))
+        val_hf   = load_from_disk(os.path.join(args.data_dir, "eval"))
+        with open(os.path.join(args.data_dir, "identity_columns.json")) as f:
+            identity_columns = json.load(f)
+
+        # Optionally further limit training samples
+        if args.train_samples > 0 and len(train_hf) > args.train_samples:
+            train_hf = train_hf.select(range(args.train_samples))
+
+        train_split = train_hf
+        val_split   = val_hf
+    else:
+        # --- Fallback path (standalone usage without data_step) ---
+        train_hf, identity_columns = download_and_prep_jigsaw("train", cache_dir=cache_dir)
+        train_hf = train_hf.shuffle(seed=args.seed)
+
+        # Apply train_samples limit before splitting
+        if args.train_samples > 0 and len(train_hf) > args.train_samples:
+            train_hf = train_hf.select(range(args.train_samples))
+
+        # Let's use 10% for validation
+        split_idx = int(0.9 * len(train_hf))
+        train_split = train_hf.select(range(split_idx))
+        val_split   = train_hf.select(range(split_idx, len(train_hf)))
 
     # Tokenize
     train_tokenized = tokenize_jigsaw_dataset(train_split, args.model_name, cache_dir=cache_dir)
