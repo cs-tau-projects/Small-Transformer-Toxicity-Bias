@@ -12,15 +12,23 @@ def run_finetune_step(models, output_dir, seed=42, train_samples=-1):
         
         if not os.path.exists(os.path.join(finetuned_model_dir, "config.json")):
             cmd = [
-                sys.executable, "-m", "src.train",
-                "--model_name", base_model_name,
-                "--output_base_dir", model_output_base_dir,
-                "--epochs", "1",
-                "--batch_size", "32",
-                "--seed", str(seed),
-                "--train_samples", str(train_samples)
+                sys.executable,
+                "-m",
+                "src.train",
+                "--model_name",
+                base_model_name,
+                "--output_base_dir",
+                model_output_base_dir,
+                "--epochs",
+                "1",
+                "--batch_size",
+                "32",
+                "--seed",
+                str(seed),
+                "--train_samples",
+                str(train_samples),
             ]
-            
+
             # Force Hugging Face Trainer to show its internal step progress bar
             env = os.environ.copy()
             env["TQDM_FORCE"] = "1"

@@ -1,11 +1,14 @@
 import os
+
 import numpy as np
 import torch
 import pandas as pd
 from tqdm import tqdm
-from transformers import AutoTokenizer, AutoModelForCausalLM
-from src.steps.utils import load_saved_data
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
 from src.evaluator import evaluate_bias
+from src.steps.utils import load_saved_data
+
 
 def get_llama_toxicity_scores(model, tokenizer, dataset, device, batch_size=8):
     """
@@ -17,7 +20,7 @@ def get_llama_toxicity_scores(model, tokenizer, dataset, device, batch_size=8):
     model.to(device)
 
     yes_id = tokenizer.encode("Yes", add_special_tokens=False)[0]
-    no_id  = tokenizer.encode("No",  add_special_tokens=False)[0]
+    no_id = tokenizer.encode("No", add_special_tokens=False)[0]
 
     all_scores = []
     texts = dataset["comment_text"]
@@ -25,19 +28,16 @@ def get_llama_toxicity_scores(model, tokenizer, dataset, device, batch_size=8):
     with torch.no_grad():
         for i in tqdm(range(0, len(texts), batch_size), desc="LLaMA zero-shot"):
             batch = texts[i : i + batch_size]
-            prompts = [
-                f'Comment: "{t}"\nIs this comment toxic? Answer:'
-                for t in batch
-            ]
-            enc = tokenizer(prompts, return_tensors="pt", padding=True,
-                            truncation=True, max_length=256).to(device)
-            logits = model(**enc).logits          # (B, seq_len, vocab)
-            last_logits = logits[:, -1, :]        # logits at the final position
+            prompts = [f'Comment: "{t}"\nIs this comment toxic? Answer:' for t in batch]
+            enc = tokenizer(prompts, return_tensors="pt", padding=True, truncation=True, max_length=256).to(device)
+            logits = model(**enc).logits  # (B, seq_len, vocab)
+            last_logits = logits[:, -1, :]  # logits at the final position
             yes_no = last_logits[:, [yes_id, no_id]]
             probs = torch.softmax(yes_no, dim=-1)[:, 0]  # P(Yes)
             all_scores.extend(probs.cpu().float().numpy())
 
     return np.array(all_scores)
+
 
 def run_llama_step(data_dir, results_dir, cache_dir, llama_model, device):
     _, eval_ds, identity_columns = load_saved_data(data_dir)
@@ -47,10 +47,11 @@ def run_llama_step(data_dir, results_dir, cache_dir, llama_model, device):
         tokenizer = AutoTokenizer.from_pretrained(llama_model, cache_dir=cache_dir)
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
-        tokenizer.padding_side = "left"   # required for causal LMs
+        tokenizer.padding_side = "left"  # required for causal LMs
 
         model = AutoModelForCausalLM.from_pretrained(
-            llama_model, cache_dir=cache_dir,
+            llama_model,
+            cache_dir=cache_dir,
             torch_dtype=torch.float16 if device.type == "cuda" else torch.float32,
         )
 

@@ -10,3 +10,5 @@ huggingface_hub
 numpy
 tqdm
 pytest
+rich
+ruff
