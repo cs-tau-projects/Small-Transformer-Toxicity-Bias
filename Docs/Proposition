@@ -1,0 +1,34 @@
+Brief Project Description
+Harmful language detection is a core task in natural language processing with direct applications
+in online moderation systems. The goal of this project is to study how effectively small pretrained transformer encoder models can be fine-tuned for harmful and toxic text detection, and
+whether such models exhibit unintended bias across identity groups. While large language models
+have recently received significant attention, many deployed moderation systems rely on smaller
+transformer-based classifiers due to their stability and ease of deployment. Prior work has demonstrated that toxicity and hate-speech classifiers may behave differently for text mentioning specific
+identity groups (e.g., gender, religion, sexual orientation), even when the text itself is non-toxic [1].
+Additional studies show that while larger models often achieve stronger performance on personal
+insults, both large and small models struggle with categories involving social group references, including religion and discrimination [?]. In this project, we focus on fine-tuning small encoder-based
+transformer models from the BERT family, which are widely used for text classification tasks. We
+will fine-tune these models on harmful-text datasets and empirically evaluate their performance
+using ROC-AUC, alongside subgroup-based metrics such as subgroup AUC and false negative rates
+for toxic comments mentioning specific identity groups, in order to identify potential bias gaps in
+model behavior.
+Requirements and Assumptions
+We will use publicly available pretrained model weights and datasets through the Hugging Face
+ecosystem. In particular, we plan to use BERT-based model variants and the Google Jigsaw
+Unintended Bias in Toxicity Classification dataset, which includes both toxicity labels and identity
+annotations. After reviewing the computational resources provided by the university and described
+in the project guidelines, we conclude that these resources are more than sufficient to support the
+proposed experiments. All required data, model weights, and APIs are publicly accessible.
+Presentation
+We are interested to present our project proposal in the final class presentation session.
+1
+References
+[1] Lucas Dixon, John Li, Jeffrey Sorensen, Nithum Thain, and Lucy Vasserman. Measuring and Mitigating
+Unintended Bias in Text Classification. In Proceedings of the 2018 AAAI/ACM Conference on AI, Ethics,
+and Society, 2018.
+
+AI Usage Disclosure and Reflection
+We used a generative AI tool (ChatGPT, OpenAI) during the preparation of this project proposal. The tool
+was used to assist with brainstorming and to improve the clarity, structure, and academic phrasing of the
+written text. Overall, the use of AI was helpful for refining ideas and improving conciseness, particularly
+when adapting the proposal to the one-page format.

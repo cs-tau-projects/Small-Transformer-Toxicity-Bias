@@ -94,7 +94,7 @@ def extract_toxigen_identities_and_evaluate(model_name, df_with_preds):
     metrics_df.insert(0, "Model", model_name)
     return metrics_df
 
-def load_toxigen_dataset(cache_dir, eval_samples=-1):
+def load_toxigen_dataset(cache_dir, eval_samples=-1, seed=42):
     """Loads and standardizes labels for the ToxiGen dataset."""
     print("Loading ToxiGen dataset from Hugging Face...")
     try:
@@ -136,7 +136,7 @@ def load_toxigen_dataset(cache_dir, eval_samples=-1):
 
     if eval_samples > 0:
         if len(df) > eval_samples:
-            df = df.sample(n=eval_samples, random_state=42).reset_index(drop=True)
+            df = df.sample(n=eval_samples, random_state=seed).reset_index(drop=True)
             
     # Standardize input text column globally 
     if 'text' not in df.columns and 'generation' in df.columns:
@@ -182,11 +182,11 @@ def eval_baseline_ood(results_dir, df):
         print(f"Error evaluating baseline on OOD data: {e}")
         return None
 
-def run_eval_ood_step(results_dir, cache_dir, output_dir, models, device, eval_samples=-1):
+def run_eval_ood_step(results_dir, cache_dir, output_dir, models, device, eval_samples=-1, seed=42):
     print("\n--- Running OOD Evaluation (ToxiGen) ---")
-
-    df = load_toxigen_dataset(cache_dir, eval_samples)
-
+    df = load_toxigen_dataset(cache_dir, eval_samples, seed=seed)
+    
+    all_metrics = []
     summary_results = []
 
     # 1. Evaluate Baseline Model if it exists

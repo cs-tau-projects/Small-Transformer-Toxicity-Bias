@@ -1,0 +1,28 @@
+Based on your project Proposition and the components you have already written (
+
+data_loader.py
+ and 
+
+dataset.py
+), you have established a solid foundation for data ingestion and preprocessing.
+
+To complete the experiment and project, here are the remaining parts that need to be implemented, presented in the recommended order of execution:
+
+1. Model Initialization and Architecture Setup
+Model Loading: Instantiate a small, pretrained transformer encoder from the Hugging Face transformers library (e.g., bert-base-uncased, distilbert-base-uncased, or roberta-base).
+Sequence Classification Head: Ensure the model is loaded with a sequence classification head configured for binary classification (toxic vs. non-toxic).
+2. Custom Evaluation Metrics Implementation
+Overall Performance Metric: Implement standard overall ROC-AUC calculation on the binary target.
+Subgroup Metrics: Implement custom functions to calculate Subgroup AUC and False Negative Rates (FNR) specifically for the subset of data where specific identity columns (the identity_probs tensor) are present. This is the core of your bias evaluation.
+3. Training Loop and Optimization
+Model Training: Write the PyTorch (or Hugging Face Trainer) training loop. You will need to define the optimizer (e.g., AdamW), learning rate scheduler, and cross-entropy loss.
+Validation Loop: Integrate your custom metrics (from step 2) into the validation loop so you can monitor both general accuracy and bias gaps during training.
+Model Checkpointing: Implement a mechanism to save the best model weights based on validation performance, while being mindful of the persistent storage limits mentioned in the syllabus.
+4. Experiment Execution and Reproducibility
+Hyperparameter Management: Set up a clean way to manage seeds, batch sizes, and learning rates (to fulfill the "reproducibility" grading criteria in the Assignment).
+Sanity Checking: As required by the assignment guidelines, create a small script or flag to overfit the model on a tiny sample (e.g., 50 examples) to mathematically ensure the training loop has no bugs before kicking off a 3-hour run.
+Execution: Run the fine-tuning on the university's Slurm GPU cluster.
+5. Result Analysis and Visualization
+Inference over Test Set: Run the fine-tuned model on the hold-out test set to collect final predictions.
+Identify Bias Gaps: Compare the subgroup metrics across different identity groups (e.g., comparing FNR for comments mentioning "muslim" vs. "christian", or "male" vs. "female").
+Visualization: Generate tables, scatter plots, or bar charts of the AUC and FNR gaps to clearly illustrate whether the small transformer exhibits subgroup bias (as required for the 8-page ACL format white paper).

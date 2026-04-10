@@ -1,0 +1,303 @@
+Natural Language Processing Final Project: Instructions & Ideas
+Natural Language Processing Tel Aviv University
+Final Project: Instructions & Ideas
+Lecturer: Dr. Tal Wagner
+Important dates
+Project proposal submission deadline: January 4, 2026
+Project proposal revision deadline (if needed): January 18, 2026
+In-class project presentations (optional): January 25, 2026
+Project submission deadline: April 12, 2026
+1 Goals
+The course project provides an exciting opportunity to:
+• Conduct independent research in NLP. You will choose a paper or a couple of papers of your choice
+and focus on some of its aspects: either a possible extension, a related or modified model, a novel
+evaluation method, etc. Alternatively, you can choose a topic you are interested in and expand the
+scientific knowledge about it.
+• Potentially contribute to science. While it would be great if your project yields new results, findings,
+or resources (in which case we will consider pursuing publication in an upcoming NLP conference),
+to get full credit it is sufficient to describe what you wanted to achieve, how you tried to achieve it,
+and what were the challenges you faced, as well as how it fits into the existing knowledge around
+this topic.
+• Experience research and the joy of new discoveries!
+2 The Project Proposal
+The goal of the project proposal is to let us know what you plan to do for your project, how you plan
+to do it, and where it fits into the existing state of knowledge and science in NLP. It is mandatory, and
+you will get a binary yes/no approval for it (no numerical grade), depending on whether the proposal is
+clear enough and deemed appropriate and feasible for the class.
+Choose your groups: You can work in groups of up to four students. Larger groups require case-bycase
+approval in advance and are expected to propose a more ambitious, broader-scope project. Working
+in teams may involve some logistical efforts, but it is often worth the tradeoff, as more teammates means
+more working hands and more minds to brainstorm with. Sign up for project groups on Moodle.
+Identify key paper(s): choose at least one and no more than three research papers relevant to
+your proposed project and explain this in your proposal. Include full bibliography references to those
+papers. Focus on papers that have been published in top-tier NLP/ML venues ideally after 2018. Other
+papers may still be appropriate in some cases. See more details in Section 6.1.
+Page 1 of 8
+Natural Language Processing Final Project: Instructions & Ideas
+Discuss feasibility: The proposal should not only tell us what you plan to do, but also include sufficient
+details about assumptions and requirements in terms of technical feasibility, access to compute, and
+availability of relevant data. Make sure that you understand what your proposed project requires and
+that you know how to gain access to those resources, and explain that to us in your proposal.
+Technical specs:
+• Proposal due date: January 4, 2026. Submitting your proposal by this date is mandatory.
+– Late submission policy: 1 point off the final project grade per day past the due date.
+• Revision due date, if needed: January 18, 2026. If your initial proposal is not approved as
+is, you will be notified by Janurary 11 and have a week to revise it according to our feedback. The
+same late submission policy applies: 1 point off the final project grade per day.
+• Format: Up to one page, in PDF format, font size 11. The bibliography and the AI usage and
+reflection statement do not count toward the one-page limit; everything else does.
+• Content:
+1. Project title.
+2. Names, IDs, emails and Moodle group number of group members.
+3. Brief project description: what problem or research question you will tackle, what is the
+motivation for studying this problem/question (why is it interesting?), what is already known
+(refer to the 1–3 papers you selected) and what you are hoping to achieve. It should be clear
+from reading the proposal what you intend to do and roughly how, and how you will evaluate
+your success. The main goal is for us to be able to confirm that the proposed project is
+sufficient but also not overly-ambitious.
+4. Requirements: describe your assumptions and requirements for the project (e.g., access to
+compute, access to API resources, access to specific data, model weights, etc.) and how you
+plan to attain them.
+5. Please indicate if you would like to present your proposal in the final class.
+6. If your proposed project has any particular context outside this class (for example: a mentored
+project (see Section 6.3), a project that relates to another class you are taking, to your thesis
+research, or to any other external context, etc.) please indicate this in your proposal.
+7. Bibliography (does not count toward one-page limit).
+8. AI usage disclosure and reflection (does not count toward one-page limit).
+Project proposal presentation in class (optional): We will use a portion of the last class (January
+25) for project presentations. Groups are welcome to give a 5-10 minute presentation of their project
+proposal and preliminary results (if relevant) in class. Presentations will be in English. Groups presenting
+their projects will receive up to 10 bonus points to their final project grades.
+3 Computational Resources
+Compute: You will have access to the departmental Slurm cluster with GPU nodes.
+Page 2 of 8
+Natural Language Processing Final Project: Instructions & Ideas
+Please read the following guide carefully before starting to use the cluster – it will save you
+a lot of time and effort: https://www.cs.tau.ac.il/system/slurm#Using%20Slurm
+You will have access to the partition studentkillable (see details in https://www.cs.tau.ac.il/
+system/slurm). You can login with your TAU credentials and see the types of GPUs you can access
+there and plan for your project proposals accordingly. It is advisable that you follow some basic tutorials
+before trying to send jobs to better understand how the system works and save yourselves time. Note
+that the cluster is a shared resource. Please avoid overusing it, be mindful of system limits (e.g., max
+run time) to make sure your jobs can finish before they are automatically killed, take into account that
+jobs may take time to start and complete depending on cluster load, and so on.
+Storage: You will have access to dedicated storage where you can host your models and datasets in
+the following location, accessible from anywhere on the system machines:
+/vol/joberant nobck/data/NLP 368307701 2526a/<your user name>
+This storage is persistent (though not backed-up, so make sure you back up all of your code and intermediate
+critical results on GitHub/Google drive). Make sure you use it for data, cache, virtual env,
+default directory for HuggingFace etc. You may also consider linking, e.g., ∼/.cache to a directory
+there with ln -s /vol/joberant nobck/data/NLP 368307701 2526a/<your user name>/.cache
+∼/.cache. Please avoid overusing it. For example, if you fine-tune a model, make sure you don’t save a
+new checkpoint every 500 steps as it will quickly block the storage space.
+4 Final Project Report
+The final project report will summarize your work and findings. It is possible that after submission I will
+schedule short meetings with some groups to discuss their report if needed.
+Technical specs:
+• Final project due date: April 12, 2026.
+– Late submission policy: 1 point off the project grade per day past the due date.
+– Please plan ahead for this deadline carefully. We have very little wiggle room for extensions
+on final projects, and we will not be able to accommodate any last-minute requests.
+• Format: Use the ACL paper format – link to template
+• Page limit: Up to 8 pages. We expect project reports to be 6–8 pages. Exceeding the page limit
+will lead to point deduction. The bibliography and AI usage disclosure and reflection section do
+not count toward the page limit. Everything else does (title, author names, tables, figures, etc.)
+Note: Everything you would like and expect to count toward your grade (see Section 5), except
+the bibliography and AI disclosure, should appear within your 8 pages. If you are unable to fit it,
+you are likely being overly verbose and missing the main points, and need to reassess your manner
+of presentation. You may look at past project examples and at published research papers (which
+are for the most part subject to similar page limits) to get an idea of how to write a concise and
+compelling scientific report.
+Page 3 of 8
+Natural Language Processing Final Project: Instructions & Ideas
+• Please revisit the AI usage guidelines discussed in the first lecture. The final project will
+involve lot more opportunities for you to use generative AI than the homework assignments and,
+inevitably, a lot more possible pitfalls and risks of misuse. Please make sure you follow the guidelines.
+• Content:
+1. Project title.
+2. Names, IDs, emails and Moodle group number of group members.
+3. Main body of your project report. The content and structure of this part are up to you. Make
+sure it covers all grading aspects mentioned in Section 5. Here is a rough typical outline – it
+is only for reference, you are not required to follow it (also look at examples of past projects
+on Moodle):
+(a) Introduction, problem definition and motivation (≈1-1.5 page).
+(b) Survey of past and related work (≈0.5-1 page).
+(c) Description of your method (≈2 pages).
+(d) Description of experimental design: data, experiments, methodological design, parameter
+settings, evaluation metrics, etc. (≈1-1.5 pages).
+(e) Experimental results (≈1.5-2 pages).
+(f) Discussion and analysis of experimental results, conclusion (≈1 page).
+4. Bibliography (does not count toward 8-page limit).
+5. AI usage disclosure and reflection (does not count toward 8-page limit).
+• Code: It is good practice to put your code on GitHub and include a link in your project PDF.
+5 Grading
+Projects will be graded according to the guidelines below. While not all points are applicable to all
+projects, please read them carefully to get a sense of what should be considered when writing your
+project report. The emphasis will be on meaningful intellectual and empirical work: depth,
+creativity, scientific rigor and clear presentation.
+Quality of research question (5pt) The project should start with a clear and concise research
+question that is relevant to the subject of the class. The question should be original and significant.
+Choosing a research question is part of the project proposal phase.
+Ambitiousness and effort (5pt) This considers the complexity and novelty of the chosen research
+question, the innovation in methodology or approach, the potential impact of the research, and the
+demonstrated effort in pursuing an ambitious and challenging project. This criterion rewards students
+for intellectual risk-taking and innovation, and for pushing the boundaries of their knowledge and skills,
+even if the final results may not be as polished or conclusive as less ambitious projects.
+Literature review (10pt) The project should include a well-written and comprehensive literature
+review, providing background on prior research on the topic and contextualizing your work within it. It
+should critically evaluate previous research and identify gaps in the literature that the project addressed.
+Page 4 of 8
+Natural Language Processing Final Project: Instructions & Ideas
+Methodology and scientific soundness (25pt) Assess the methodology used to answer the research
+question. The methods should be appropriate for the question and be rigorously executed. Depending
+on the nature of the project, this might involve an evaluation of experimental design, data collection and
+analysis, or theoretical argumentation. This clause also asserts that your methodology is aligned with
+the project’s expected scope. Points for consideration:
+• When performing experiments, always make sure you follow best-practices such as avoiding data
+leakage and overfitting (remember train/validation/test splits?), using appropriate models and sensible
+hyperparameters. Also, always compare with relevant baselines. For example, a naive majority
+vote classifier and/or the most common approach that is currently used in the literature. This is
+the only way to frame your results in any meaningful way. Similarly, always account for randomness
+(e.g. seeds, prompts affect, randomness from the decoding scheme).
+• If you train a model and can’t get any meaningful results, at least make sure you are able to overfit
+on a small sample of the data – otherwise you are doing something wrong and probably have a bug.
+Show me that the sanity experiment worked.
+• Make sure that your results are reproducible (as much as possible). This is usually done by specifying
+the exact settings in which you ran the experiment and providing access to the code and data used.
+When not possible, clearly state the reason.
+Results and discussion (20pt) The paper must present the findings accurately and coherently. The
+discussion should contextualize these results within the research question and existing literature. Both
+positive and negative results are valued, provided they stem from sound methodology, are thoroughly
+analyzed, and meaningfully contribute to the discourse. Points for consideration:
+• When you present results, you should discuss what conclusions are derived from them.
+• Always make sure your results are given in full and in an easy-to-understand format (whether it is
+a table, a scatter plot, a bar plot or simply inline text).
+• Dataset statistics: when working with datasets, it is often helpful for the reader to understand how
+the data was built, its size, and if annotated, what is the label distribution. When the samples’
+description is not trivial, also consider including examples. If you created data, make sure to
+describe the process through which you created it.
+• Figures: it is often useful to have a figure/algorithm box outlining your method (when appropriate)
+which both helps the reader understand what you are describing and lets you refer to it while
+outlining your method. Additionally, it is often a nice touch to add figure in the first or second
+page with some demonstration of your main results, to which you can refer from your introduction
+when discussing your contributions.
+Citations and bibliography (5pt) The paper should properly cite all sources of information used in
+the project. The citation style should be consistent and the bibliography should be formatted correctly
+(if you have not used the \citet and \citep macros, you probably used the wrong format). Note that
+while literature review is aimed to give an understating of where your work is placed in the current state
+of your field, this criterion verifies that when mentioning work or claims from prior work, you give the
+correct attribution.
+Page 5 of 8
+Natural Language Processing Final Project: Instructions & Ideas
+Presentation and communication (25pt) This assesses the clarity of writing, narrative coherence,
+grammatical accuracy, and visual clarity of figures and explanations. It evaluates the overall organization
+and aesthetic presentation of the work, highlighting the importance of conveying complex research in a
+clear, concise, and engaging manner. This is also where you are evaluated on your division of content to
+the proper sections and following the expected format (ACL template). Points for consideration:
+• Structure: The introduction should set the stage to what problem you are tackling, what high-level
+ideas you used to solve the problems, and what your main findings are. A thorough background is
+usually best placed in its own section.
+• Make sure the paper is self-contained. Namely, ensure that any uncommon models and metrics are
+clearly defined, and all the important background is there. If you rely on previous work, make sure
+it is accessible and properly cited.
+• When using LLMs, make sure you stand behind what it writes. Beware of using it too much. While
+on the surface the generated content sounds good, very often the text becomes too boastful and
+not succinct, hiding the important details in too much text.
+• Avoid compiling a detailed work log with every step and issue encountered. Instead, focus on
+creating a white paper. For example, rather than ’We tried X but it failed because of Y, leading us
+to try Z’, write ’X was ineffective due to Y. Z proved successful. Implementation details are in...’.
+Be concise and omit exhaustive challenges.
+• While the appendix is a great place to put additional figures, proofs or examples, it should not
+contain any content that is critical to the flow of the paper. In fact, it should be assumed that the
+appendix is not read at all unless the reader is specifically interested in certain details.
+• Figures should use large enough fonts and added as pdf files (not jpeg or png) to ensure high quality.
+Feel free to use LLMs to help you create beautiful plots easily!
+AI usage disclosure and reflection (5pt) The same rules apply to this section in the final project
+as in the homework assignments.
+Bonus of up to 10pt will be given to projects presented in class (see details in Section 2). The number
+of bonus points given will be determined based on how coherent, clear, and engaging the presentation is.
+6 Project Ideas and Resources
+There are many interesting questions to answer with the tools you have learned in class. Avoid ideas that
+require significant engineering (e.g., building an online platform), significant human efforts (e.g., large
+scale annotations) or significant compute (e.g., reproducing GPT-4). Instead, you can think of ways to
+improve the evaluation of existing methods, identifying problems that LLMs struggle with, coming up
+with new interesting tasks (and working on a proof-of-concept for them), improving a model for a specific
+task, or extending our knowledge of and insight into LLMs.
+While the grading guideline section might sound daunting, the scope of the project is a white-paper
+with a proof-of-concept presentation of an idea and not a scientific paper ready to be submitted to an
+international conference. Choosing a good idea is key to making sure your research and implementation
+Page 6 of 8
+Natural Language Processing Final Project: Instructions & Ideas
+phase is both interesting and can be completed in a few days of work, leaving you with meaningful results
+to compile into a white paper.
+6.1 Research paper resources
+The number and variety of research papers in NLP and ML today are difficult to navigate. When
+choosing papers to focus on, it is best to focus on more recent work (say, later than 2018) and that has
+been published in a top-tier peer-reviewed venue in the field. Many great papers do not fall into this
+category. If you are interested in a particular paper or venue, but you are unsure if it is legit and reliable
+to base your project on, you can email me to consult.
+While it is impossible to list here all prestigious venues where great NLP papers might be published, here
+are a few good ones:
+• EMNLP, ACL, NAACL: See here. These are venues specialized to NLP. The list contains many
+other NLP venues, not all of the same tier.
+• NeurIPS, ICML, ICLR: These are top-tier general ML (and beyond) venues. They will have papers
+on all topics in ML, you will need to filter for NLP.
+Each of these venues publishes many hundreds of papers yearly, so you would need to navigate them using
+searches, keywords, topic filters, tools like Google Scholar and Semantic Scholar, and so on. Papers from
+these venues will generally be openly available online on the venue’s website and/or on paper repositories
+like arXiv.
+You may choose to use generative AI to point you to key papers on your topics of interest. It can provide
+good pointers. However, be wary of all the usual risks and pitfalls of relying on AI, and particularly
+hallucinations (non-existent papers, or papers that exist but the AI hallucinates their content when
+describing it to you); they still happen, even in the most advanced frontier models.
+6.2 Model suites
+Model suites like OLMo and Pythia include pre-trained/fine-tuned models and their training data, often
+with sequence-level metadata information (e.g., which sequences the model saw during each step of
+training). This facilitates studying various problems in LLMs and NLP. You can think of it as a playground
+where we can train, intervene, and analyze small-scale language models with full visibility into
+their training data. Keep in mind that these models are not as performant as frontier LLMs (they are
+pre-trained, but not fine-tuned or aligned in any way, and were trained on little data). Still, as frontier
+LLMs rely on similar principles and architectures and their pre-training process is (likely) similar, some
+conclusions may transfer.
+Even if you choose to work with these suites, be sure to carefully consider scope and feasibility; some of
+their models are still too large to fit and run on available class resources.
+Page 7 of 8
+Natural Language Processing Final Project: Instructions & Ideas
+6.3 Mentored projects
+You have the option to work on your project under the guidance and mentorship of a PhD student
+in our department as part of their graduate research. This can be a great opportunity for a more
+extensive research experience and closer mentorship. However, such projects also require a higher level of
+commitment and possibly a more extensive scope of work. They are appropriate for students interested
+in more ambitious projects and in possibly continuing their work beyond this class.
+One option is for you to find your own mentor if you have contact with PhD students in the department.
+In this case you need to ask for my approval in advance (prior to the proposal submission, as your proposal
+would hinge on whether the suggested mentorship arrangement is approved or not).
+Another option is to reply to the call below from PhD student Yoav Gur Arieh from the TAU NLP group.
+If you are interested in this call, please contact me about it.
+Please note that while you are free to pursue this topic independently, mentorship is contingent upon
+mutual consent. If you are interested in the call I can connect you with the mentor to assess mutual
+interests and compatibility, however, whether you could work on this mentored project is not guaranteed.
+Mentored project proposal: Understanding Entity Binding Mechanisms
+Mentor: PhD student Yoav Gur Arieh
+A key component of in-context reasoning is the ability of language models (LMs) to bind entities for
+later retrieval. For example, an LM might represent Ann loves pie by binding Ann to pie, allowing it
+to later retrieve Ann when asked Who loves pie? We found that LMs implement this using three types
+of pointer-based mechanisms: positional, lexical and reflexive. However, there still remain many open
+questions:
+• What are the components that implement these mechanisms in LMs? Can we precisely identify
+a circuit that implements them? Are the components shared across these mechanisms? Does the
+circuit seem similar across different LMs?
+• How do these mechanisms develop over the course of the LM’s training? We can use open source
+checkpoints of LMs at different stages of training to identify how these mechanisms come to be.
+• Are these same mechanisms used in more naturalistic settings? How can we test this?
+• Can we improve these mechanisms in order to improve its long-context reasoning abilities?
+• Older models seem to be much worse at this task than current ones, even while having a similar
+amount of parameters and training data. What mechanisms do these older models rely on, what
+makes them worse, and why do they develop those mechanisms as opposed to the ones we see
+present in all other current LMs?
+Our objective is to deepen our understanding of how models implement entity binding and how they use
+this for reasoning by approaching the problem from several complementary directions: identifying the
+underlying circuits, tracing their emergence during training, and testing their generality across models
+and contexts. Students are welcome to focus on any one of these directions or propose a related angle of
+research.
+Page 8 of 8
