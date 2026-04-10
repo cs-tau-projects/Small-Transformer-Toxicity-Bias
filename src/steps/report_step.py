@@ -1,6 +1,76 @@
 import os
 import pandas as pd
 from src.steps.utils import load_saved_data
+from datetime import datetime
+
+# Define the headers for the new structured log file
+CSV_HEADERS = [
+    "timestamp", "experiment_name", "model_name", "evaluation_type", 
+    "overall_auc", "subgroup", "subgroup_auc", "subgroup_fnr", "subgroup_fpr"
+]
+
+def log_results_to_csv(results_dir, all_results_dict, full_config):
+    """
+    Appends results from a dictionary of dataframes to a master CSV log.
+    Transforms wide-format metrics into a long-format for easier analysis.
+    """
+    log_path = os.path.join(results_dir, "results.csv")
+    
+    # Prepare a list to hold all the new rows to be appended
+    new_rows = []
+    
+    # Extract details from the config, with defaults
+    experiment_name = full_config.get("experiment_name", "default_experiment")
+    timestamp = datetime.now().isoformat()
+    
+    for model_display_name, df in all_results_dict.items():
+        # Deconstruct the display name to get model and type
+        if " Finetuned" in model_display_name:
+            model_name = model_display_name.replace(" Finetuned", "")
+            eval_type = "finetuned"
+        elif " Raw" in model_display_name:
+            model_name = model_display_name.replace(" Raw", "")
+            eval_type = "raw"
+        elif " OOD" in model_display_name:
+            model_name = model_display_name.replace(" OOD", "")
+            eval_type = "ood"
+        else:
+            model_name = model_display_name
+            eval_type = "baseline"
+            
+        # The overall AUC is the same for all rows in a given dataframe
+        overall_auc = df["1. Overall AUC"].iloc[0]
+
+        # Transform each row (subgroup) of the input dataframe into a dictionary
+        for _, row in df.iterrows():
+            new_row = {
+                "timestamp": timestamp,
+                "experiment_name": experiment_name,
+                "model_name": model_name,
+                "evaluation_type": eval_type,
+                "overall_auc": overall_auc,
+                "subgroup": row["Identity"],
+                "subgroup_auc": row.get("4. Subgroup AUC"),
+                "subgroup_fnr": row.get("5. Subgroup FNR"),
+                "subgroup_fpr": row.get("6. Subgroup FPR"),
+            }
+            new_rows.append(new_row)
+
+    if not new_rows:
+        return
+
+    # Create DataFrame from the new rows
+    new_df = pd.DataFrame(new_rows, columns=CSV_HEADERS)
+
+    # Append to the master CSV file
+    if not os.path.exists(log_path):
+        # File doesn't exist, write with header
+        new_df.to_csv(log_path, index=False, header=True)
+        print(f"Created new structured log at {log_path}")
+    else:
+        # File exists, append without header
+        new_df.to_csv(log_path, mode='a', index=False, header=False)
+        print(f"Appended {len(new_rows)} rows to structured log at {log_path}")
 
 def format_final_report(all_results_dict):
     """Combines metrics from all models into a comparative table suitable for an ACL report."""
@@ -89,6 +159,12 @@ def run_report_step(data_dir, results_dir, cache_dir, llama_model, models, eval_
                 safe_name = fname.replace("_finetuned_metrics.csv", "")
                 real_name = reverse_map.get(safe_name, safe_name)
                 all_results_dict[f"{real_name} Finetuned"] = df
+            elif fname == "ood_toxigen_metrics.csv":
+                # OOD CSV contains multiple models, split them out
+                for model_display_name in df['Model'].unique():
+                    model_df = df[df['Model'] == model_display_name].copy()
+                    # Keep only the standard metric columns
+                    all_results_dict[f"{model_display_name} OOD"] = model_df
 
     final_df = format_final_report(all_results_dict)
     if final_df is not None:

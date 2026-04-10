@@ -34,7 +34,7 @@ def compute_fpr(y_true, y_pred_binary):
 def evaluate_bias(y_true, y_pred_probs, identity_matrix, identity_columns, threshold=0.5):
     """
     Evaluates predictions against the ground truth and identity annotations.
-    Computes Overall AUC, Subgroup AUC, Subgroup FNR Gap, and Pinned AUC.
+    Computes Overall AUC, Overall FNR, Overall FPR, Subgroup AUC, Subgroup FNR, and Subgroup FPR.
     
     Args:
         y_true: np.array of shape (N,) with ground truth binary labels

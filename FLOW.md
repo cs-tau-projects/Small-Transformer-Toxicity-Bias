@@ -38,7 +38,7 @@ main.py  (CLI entry point)
 └── report         → src/steps/report_step.py
 ```
 
-Each step is **independently runnable** via `--step <name>` or all together via `--step all`.
+Each step is **independently runnable** via `--step <name>`. Most standard steps (data, baseline, finetune, eval-finetuned, eval-ood, llama, report) are also ran sequentially via `--step all`. The `eval-raw` step is excluded from `all` and must be run explicitly.
 
 ---
 

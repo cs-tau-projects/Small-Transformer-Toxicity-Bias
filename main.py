@@ -52,7 +52,7 @@ def main():
         from src.steps.baseline_step import run_baseline_step
         run_baseline_step(data_dir, results_dir)
 
-    if args.step in ["eval-raw", "all"]:
+    if args.step == "eval-raw":
         from src.steps.eval_raw_step import run_eval_raw_step
         run_eval_raw_step(data_dir, results_dir, cache_dir, args.models, device)
 
