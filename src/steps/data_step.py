@@ -2,12 +2,10 @@ import os
 import json
 from src.data.dataset import download_and_prep_jigsaw
 
-SEED = 42  # Fixed seed for reproducible dataset splits
-
-def run_data_step(cache_dir, data_dir, train_samples=20000, eval_samples=5000):
+def run_data_step(cache_dir, data_dir, train_samples=20000, eval_samples=5000, seed=42):
     print("\nLoading and Splitting Dataset...")
     full_ds, identity_columns = download_and_prep_jigsaw("train", cache_dir=cache_dir)
-    full_ds = full_ds.shuffle(seed=SEED)
+    full_ds = full_ds.shuffle(seed=seed)
     
     split_idx = int(0.9 * len(full_ds))
     train_ds = full_ds.select(range(split_idx))
