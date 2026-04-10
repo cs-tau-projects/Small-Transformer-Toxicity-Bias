@@ -3,7 +3,7 @@ import subprocess
 import sys
 from tqdm import tqdm
 
-def run_finetune_step(models, output_dir, seed=42, train_samples=-1):
+def run_finetune_step(models, output_dir, cache_dir=None, seed=42, train_samples=-1):
     for base_model_name in tqdm(models, desc="Fine-tuning models"):
         print(f"\nTriggering fine-tuning for {base_model_name}...")
         safe_name = base_model_name.replace("/", "_")
@@ -27,6 +27,8 @@ def run_finetune_step(models, output_dir, seed=42, train_samples=-1):
                 str(seed),
                 "--train_samples",
                 str(train_samples),
+                "--cache_dir",
+                str(cache_dir) if cache_dir else os.path.join(model_output_base_dir, ".cache"),
             ]
 
             # Force Hugging Face Trainer to show its internal step progress bar

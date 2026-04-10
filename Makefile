@@ -1,5 +1,7 @@
 .PHONY: help install test run-all tiny-run data baseline eval-raw finetune eval-finetuned llama report clean lint format check
 
+PYTHON = python
+
 help:
 	@echo "Available commands:"
 	@echo "  make install         - Install dependencies"
@@ -15,6 +17,7 @@ help:
 	@echo "  make eval-finetuned  - Run fine-tuned transformer evaluation step"
 	@echo "  make eval-ood        - Run Out-Of-Domain (ToxiGen) evaluation"
 	@echo "  make llama           - Run LLaMA zero-shot evaluation step"
+	@echo "  make hf-login        - Authenticate with Hugging Face Hub"
 	@echo "  make report          - Generate final evaluation report"
 	@echo "  make clean           - Remove cached files and outputs"
 
@@ -36,7 +39,7 @@ small-run:
 	python main.py --models distilbert-base-uncased --train_samples 20000 --eval_samples 5000
 
 tiny-run:
-	python main.py --models distilbert-base-uncased --train_samples 100 --eval_samples 100 --step all
+	python main.py --train_samples 100 --eval_samples 100 --step all
 
 run-all:
 	python main.py --step all
@@ -61,6 +64,9 @@ eval-ood:
 
 llama:
 	python main.py --step llama
+
+hf-login:
+	hf auth login
 
 report:
 	python main.py --step report

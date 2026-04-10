@@ -67,7 +67,7 @@ def main():
     if args.step in ["finetune", "all"]:
         from src.steps.finetune_step import run_finetune_step
         logger.info("Running [bold cyan]Fine-tuning[/bold cyan] step", extra={"markup": True})
-        run_finetune_step(args.models, args.output_dir, seed=args.seed, train_samples=args.train_samples)
+        run_finetune_step(args.models, args.output_dir, cache_dir=cache_dir, seed=args.seed, train_samples=args.train_samples)
 
     if args.step in ["eval-finetuned", "all"]:
         from src.steps.eval_ft_step import run_eval_ft_step

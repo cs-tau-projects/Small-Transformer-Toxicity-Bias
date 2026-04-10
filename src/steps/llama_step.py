@@ -1,14 +1,12 @@
 import os
-
 import numpy as np
 import torch
 import pandas as pd
+from huggingface_hub import HfApi
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
-
 from src.evaluator import evaluate_bias
 from src.steps.utils import load_saved_data
-
 
 def get_llama_toxicity_scores(model, tokenizer, dataset, device, batch_size=8):
     """
@@ -38,11 +36,20 @@ def get_llama_toxicity_scores(model, tokenizer, dataset, device, batch_size=8):
 
     return np.array(all_scores)
 
-
 def run_llama_step(data_dir, results_dir, cache_dir, llama_model, device):
     _, eval_ds, identity_columns = load_saved_data(data_dir)
 
     print(f"\nZero-shot toxicity scoring with {llama_model}...")
+
+    # Pre-check authentication for gated models
+    api = HfApi()
+    try:
+        user_info = api.whoami()
+        print(f"Authenticated as: {user_info['name']}")
+    except Exception:
+        print("[WARNING] Not authenticated with Hugging Face. Gated models like LLaMA may fail to load.")
+        print("Suggestion: Run 'make hf-login' (which runs 'hf auth login') to authenticate.")
+
     try:
         tokenizer = AutoTokenizer.from_pretrained(llama_model, cache_dir=cache_dir)
         if tokenizer.pad_token is None:
@@ -72,11 +79,18 @@ def run_llama_step(data_dir, results_dir, cache_dir, llama_model, device):
         out_path = os.path.join(results_dir, f"{safe_name}_raw_metrics.csv")
         metrics_df.to_csv(out_path, index=False)
         
-
         preds_df = pd.DataFrame({'comment_text': eval_ds['comment_text'], 'toxicity_score': y_pred_probs})
         preds_out_path = os.path.join(results_dir, f"preds_{safe_name}_llama.csv")
         preds_df.to_csv(preds_out_path, index=False)
         
         print(f"Saved LLaMA metrics to {out_path} and predictions to {preds_out_path}")
     except Exception as e:
-        print(f"Error evaluating LLaMA model: {e}")
+        err_msg = str(e)
+        if "403" in err_msg or "gated" in err_msg.lower():
+            print("\n[ERROR] Authentication failure or Access Denied to LLaMA model.")
+            print(f"Reason: {llama_model} is a gated repository.")
+            print("\nFix Steps:")
+            print(f"1. Request access at: https://huggingface.co/{llama_model}")
+            print("2. Once approved, run 'make hf-login' (or 'hf auth login') in your terminal.")
+        else:
+            print(f"Error evaluating LLaMA model: {e}")

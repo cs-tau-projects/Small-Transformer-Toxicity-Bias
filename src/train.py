@@ -19,6 +19,7 @@ def parse_args():
     parser.add_argument("--batch_size", type=int, default=32, help="Batch size for training and eval.")
     parser.add_argument("--learning_rate", type=float, default=2e-5, help="Learning rate.")
     parser.add_argument("--train_samples", type=int, default=-1, help="Max training samples to use (-1 for all).")
+    parser.add_argument("--cache_dir", type=str, default=None, help="Directory for Hugging Face and dataset cache.")
 
     # We will compute metrics every epoch
     return parser.parse_args()
@@ -86,7 +87,7 @@ def main():
         torch.backends.cudnn.benchmark = False
 
     # Setup directories
-    cache_dir = os.path.join(args.output_base_dir, ".cache")
+    cache_dir = args.cache_dir if args.cache_dir else os.path.join(args.output_base_dir, ".cache")
     hf_token = get_hf_token()
     output_dir = os.path.join(args.output_base_dir, "small-transformer-toxicity")
 
