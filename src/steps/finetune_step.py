@@ -3,7 +3,7 @@ import subprocess
 import sys
 from tqdm import tqdm
 
-def run_finetune_step(models, output_dir, seed=42, train_samples=-1, data_dir=None):
+def run_finetune_step(models, output_dir, cache_dir=None, seed=42, train_samples=-1, data_dir=None):
     for base_model_name in tqdm(models, desc="Fine-tuning models"):
         print(f"\nTriggering fine-tuning for {base_model_name}...")
         safe_name = base_model_name.replace("/", "_")
@@ -12,20 +12,28 @@ def run_finetune_step(models, output_dir, seed=42, train_samples=-1, data_dir=No
         
         if not os.path.exists(os.path.join(finetuned_model_dir, "config.json")):
             cmd = [
-                sys.executable, "-m", "src.train",
-                "--model_name", base_model_name,
-                "--output_base_dir", model_output_base_dir,
-                "--epochs", "1",
-                "--batch_size", "32",
-                "--seed", str(seed),
-                "--train_samples", str(train_samples)
+                sys.executable,
+                "-m",
+                "src.train",
+                "--model_name",
+                base_model_name,
+                "--output_base_dir",
+                model_output_base_dir,
+                "--epochs",
+                "1",
+                "--batch_size",
+                "32",
+                "--seed",
+                str(seed),
+                "--train_samples",
+                str(train_samples),
+                "--cache_dir",
+                str(cache_dir) if cache_dir else os.path.join(model_output_base_dir, ".cache"),
             ]
-            
             # Forward the pre-saved data splits dir so train.py uses the same
             # 90/10 split as all other pipeline steps (fixes SEED-2 data split inconsistency)
             if data_dir and os.path.isdir(data_dir):
                 cmd += ["--data_dir", data_dir]
-            
             # Force Hugging Face Trainer to show its internal step progress bar
             env = os.environ.copy()
             env["TQDM_FORCE"] = "1"
