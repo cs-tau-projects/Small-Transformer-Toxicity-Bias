@@ -37,7 +37,7 @@ def get_llama_toxicity_scores(model, tokenizer, dataset, device, batch_size=8):
     return np.array(all_scores)
 
 def run_llama_step(data_dir, results_dir, cache_dir, llama_model, device):
-    _, eval_ds, identity_columns = load_saved_data(data_dir)
+    _, test_ds, identity_columns = load_saved_data(data_dir)
 
     print(f"\nZero-shot toxicity scoring with {llama_model}...")
 
@@ -62,15 +62,15 @@ def run_llama_step(data_dir, results_dir, cache_dir, llama_model, device):
             torch_dtype=torch.float16 if device.type == "cuda" else torch.float32,
         )
 
-        y_pred_probs = get_llama_toxicity_scores(model, tokenizer, eval_ds, device)
+        y_pred_probs = get_llama_toxicity_scores(model, tokenizer, test_ds, device)
 
-        y_val = np.array(eval_ds["is_toxic"])
-        identities_val = np.array([eval_ds[col] for col in identity_columns]).T
+        y_test = np.array(test_ds["is_toxic"])
+        identities_test = np.array([test_ds[col] for col in identity_columns]).T
 
         metrics_df = evaluate_bias(
-            y_true=y_val,
+            y_true=y_test,
             y_pred_probs=y_pred_probs,
-            identity_matrix=identities_val,
+            identity_matrix=identities_test,
             identity_columns=identity_columns,
             threshold=0.5,
         )
@@ -79,11 +79,9 @@ def run_llama_step(data_dir, results_dir, cache_dir, llama_model, device):
         out_path = os.path.join(results_dir, f"{safe_name}_raw_metrics.csv")
         metrics_df.to_csv(out_path, index=False)
         
-        preds_df = pd.DataFrame({'comment_text': eval_ds['comment_text'], 'toxicity_score': y_pred_probs})
+        preds_df = pd.DataFrame({'comment_text': test_ds['comment_text'], 'toxicity_score': y_pred_probs})
         preds_out_path = os.path.join(results_dir, f"preds_{safe_name}_llama.csv")
         preds_df.to_csv(preds_out_path, index=False)
-        
-        print(f"Saved LLaMA metrics to {out_path} and predictions to {preds_out_path}")
     except Exception as e:
         err_msg = str(e)
         if "403" in err_msg or "gated" in err_msg.lower():

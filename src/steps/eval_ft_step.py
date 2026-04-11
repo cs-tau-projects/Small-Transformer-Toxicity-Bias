@@ -5,7 +5,7 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from src.steps.utils import eval_transformer, load_saved_data
 
 def run_eval_ft_step(data_dir, results_dir, cache_dir, output_dir, models, device):
-    _, eval_ds, identity_columns = load_saved_data(data_dir)
+    _, test_ds, identity_columns = load_saved_data(data_dir)
 
     for base_model_name in tqdm(models, desc="Evaluating fine-tuned models"):
         safe_name = base_model_name.replace("/", "_")
@@ -32,12 +32,12 @@ def run_eval_ft_step(data_dir, results_dir, cache_dir, output_dir, models, devic
                 )
                 
                 # Note: eval_transformer returns (metrics_df, y_pred_probs)
-                ft_df, y_pred_probs = eval_transformer(f"Fine-Tuned {base_model_name}", ft_model, tokenizer, eval_ds, identity_columns, device)
+                ft_df, y_pred_probs = eval_transformer(f"Fine-Tuned {base_model_name}", ft_model, tokenizer, test_ds, identity_columns, device)
                 
                 out_path = os.path.join(results_dir, f"{safe_name}_finetuned_metrics.csv")
                 ft_df.to_csv(out_path, index=False)
                 
-                preds_df = pd.DataFrame({'comment_text': eval_ds['comment_text'], 'toxicity_score': y_pred_probs})
+                preds_df = pd.DataFrame({'comment_text': test_ds['comment_text'], 'toxicity_score': y_pred_probs})
                 preds_out_path = os.path.join(results_dir, f"preds_{safe_name}_finetuned.csv")
                 preds_df.to_csv(preds_out_path, index=False)
                 

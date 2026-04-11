@@ -107,8 +107,18 @@ def main():
         from datasets import load_from_disk
         import json
         print(f"Loading pre-saved data splits from {args.data_dir}...")
-        train_hf = load_from_disk(os.path.join(args.data_dir, "baseline_train"))
-        val_hf   = load_from_disk(os.path.join(args.data_dir, "eval"))
+        
+        train_path = os.path.join(args.data_dir, "train")
+        val_path = os.path.join(args.data_dir, "val")
+        
+        if os.path.exists(train_path) and os.path.exists(val_path):
+            train_hf = load_from_disk(train_path)
+            val_hf   = load_from_disk(val_path)
+        else:
+            # Fallback for old splits: train on baseline_train, val on eval
+            train_hf = load_from_disk(os.path.join(args.data_dir, "baseline_train"))
+            val_hf   = load_from_disk(os.path.join(args.data_dir, "eval"))
+
         with open(os.path.join(args.data_dir, "identity_columns.json")) as f:
             identity_columns = json.load(f)
 
@@ -123,14 +133,19 @@ def main():
         train_hf, identity_columns = download_and_prep_jigsaw("train", cache_dir=cache_dir)
         train_hf = train_hf.shuffle(seed=args.seed)
 
-        # Apply train_samples limit before splitting
+        # Apply train_samples limit before splitting if set
         if args.train_samples > 0 and len(train_hf) > args.train_samples:
-            train_hf = train_hf.select(range(args.train_samples))
+             train_hf = train_hf.select(range(args.train_samples))
 
-        # Let's use 10% for validation
-        split_idx = int(0.9 * len(train_hf))
-        train_split = train_hf.select(range(split_idx))
-        val_split   = train_hf.select(range(split_idx, len(train_hf)))
+        # Scientific 80/10/10 split (standalone version)
+        n = len(train_hf)
+        train_idx = int(0.8 * n)
+        val_idx = int(0.9 * n)
+        
+        train_split = train_hf.select(range(train_idx))
+        val_split   = train_hf.select(range(train_idx, val_idx))
+        # Note: In standalone mode, the 'test' split (range(val_idx, n)) 
+        # is ignored as training only needs train/val.
 
     # Tokenize
     train_tokenized = tokenize_jigsaw_dataset(train_split, args.model_name, cache_dir=cache_dir)

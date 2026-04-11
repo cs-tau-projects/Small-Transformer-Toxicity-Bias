@@ -216,11 +216,11 @@ def run_report_step(data_dir, results_dir, cache_dir, llama_model, models, eval_
     console.print("\nCompiling single aggregated [bold]final_predictions.csv[/bold]...")
     try:
         from src.steps.eval_ood_step import load_toxigen_dataset
-        _, eval_ds, _ = load_saved_data(data_dir)
+        _, test_ds, _ = load_saved_data(data_dir)
         jigsaw_df = pd.DataFrame({
-            'sentence': eval_ds['comment_text'],
+            'sentence': test_ds['comment_text'],
             'dataset': 'Jigsaw',
-            'true_label': eval_ds['is_toxic']
+            'true_label': test_ds['is_toxic']
         })
         
         try:
