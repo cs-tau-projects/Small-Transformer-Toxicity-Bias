@@ -31,15 +31,29 @@ def setup_logging(output_dir):
 
 
 def load_saved_data(data_dir):
-    """Helper to load train/eval datasets and identity columns."""
+    """
+    Helper to load datasets and identity columns.
+    By default, returns (Train, Test) to downstream evaluation steps.
+    """
     print(f"Loading cached datasets from {data_dir}...")
-    baseline_train_ds = load_from_disk(os.path.join(data_dir, "baseline_train"))
-    eval_ds = load_from_disk(os.path.join(data_dir, "eval"))
+    
+    # Prioritize new 80/10/10 split names
+    train_path = os.path.join(data_dir, "train")
+    val_path = os.path.join(data_dir, "val")
+    test_path = os.path.join(data_dir, "test")
+    
+    if os.path.exists(train_path) and os.path.exists(test_path):
+        train_ds = load_from_disk(train_path)
+        test_ds = load_from_disk(test_path)
+    else:
+        # Fallback to 90/10 names
+        train_ds = load_from_disk(os.path.join(data_dir, "baseline_train"))
+        test_ds = load_from_disk(os.path.join(data_dir, "eval"))
 
     with open(os.path.join(data_dir, "identity_columns.json"), "r") as f:
         identity_columns = json.load(f)
 
-    return baseline_train_ds, eval_ds, identity_columns
+    return train_ds, test_ds, identity_columns
 
 
 def get_transformer_predictions(model, tokenizer, dataset, device, batch_size=32):
