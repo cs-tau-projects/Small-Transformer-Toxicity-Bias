@@ -187,6 +187,8 @@ def run_report_step(data_dir, results_dir, cache_dir, llama_model, models, eval_
             # Reverse-engineer the display name from the filename
             if fname == "baseline_metrics.csv":
                 all_results_dict["Baseline"] = df
+            elif fname == "naive_baseline_metrics.csv":
+                all_results_dict["Naive"] = df
             elif fname.endswith("_raw_metrics.csv"):
                 safe_name = fname.replace("_raw_metrics.csv", "")
                 real_name = reverse_map.get(safe_name, safe_name)
