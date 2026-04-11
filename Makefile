@@ -89,5 +89,14 @@ slurm:
 	sbatch job.sh
 	@echo "Monitor with: squeue --me"
 
+slurm-test:
+	@mkdir -p logs
+	@echo "Submitting quick validation job..."
+	sbatch --job-name=tox-test --time=00:20:00 job.sh 
+
+conda-fix-torch:
+	@echo "Ensuring PyTorch is installed with CUDA support in the active conda environment..."
+	conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
+
 clean:
 	@python -c "import os, shutil, glob; ans=input('Are you sure you want to clear all trash (outputs, caches, etc.)? [y/n] '); exit(1) if ans.lower()!='y' else [shutil.rmtree(d, ignore_errors=True) for d in ['outputs','.pytest_cache','.hf_cache','.ruff_cache'] + glob.glob('**/__pycache__', recursive=True)]; print('Trash cleared successfully.')"

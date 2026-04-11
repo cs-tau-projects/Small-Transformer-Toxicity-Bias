@@ -41,6 +41,10 @@ conda activate venv
 set -u
 echo "✓ Conda env active  ($(python --version))"
 
+# Try loading CUDA modules (Common on TAU CS Slurm)
+echo "Attempting to load CUDA modules..."
+module load cuda/12.1 || module load cuda/11.8 || echo "⚠ No standard CUDA module found, relying on environment."
+
 # Load HF token from .env (required for gated models like LLaMA)
 if [ -f ".env" ]; then
     export $(grep -v '^#' .env | xargs)
@@ -55,10 +59,18 @@ echo "✓ HF_HOME=$HF_HOME"
 # Ensure output directory exists
 mkdir -p "$OUTPUT_DIR"
 
-# ── Run Pipeline ────────────────────────────────────────
+# ── Diagnostics (GPU/Torch) ─────────────────────────────
 echo ""
+echo "── GPU Diagnostics ──"
+echo "CUDA_VISIBLE_DEVICES : ${CUDA_VISIBLE_DEVICES:-'NOT SET'}"
+nvidia-smi --query-gpu=name,index,memory.total --format=csv,noheader
+python -c "import torch; print(f'Torch Version: {torch.__version__}'); print(f'CUDA available: {torch.cuda.is_available()}'); print(f'Device Count: {torch.cuda.device_count()}'); print(f'CUDA Version: {torch.version.cuda}')"
+echo "─────────────────────"
+echo ""
+
+# ── Run Pipeline ────────────────────────────────────────
 echo "═══════════════════════════════════════════════════"
-echo "           STARTING: make run-all"
+echo "           STARTING: python main.py"
 echo "═══════════════════════════════════════════════════"
 
 python main.py --step all --output_dir "$OUTPUT_DIR"

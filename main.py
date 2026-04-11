@@ -46,8 +46,16 @@ def main():
     # We only determine the device if we are running a model-related step
     device = None
     if args.step in ["eval-raw", "finetune", "eval-finetuned", "eval-ood", "llama", "all"]:
-        device = torch.device("cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu"))
-        logger.info(f"Using device: [bold blue]{device}[/bold blue]", extra={"markup": True})
+        if torch.cuda.is_available():
+            device = torch.device("cuda")
+            logger.info(f"Using device: [bold green]{device}[/bold green] (GPU Count: {torch.cuda.device_count()})", extra={"markup": True})
+        elif torch.backends.mps.is_available():
+            device = torch.device("mps")
+            logger.info(f"Using device: [bold blue]{device}[/bold blue] (Metal)", extra={"markup": True})
+        else:
+            device = torch.device("cpu")
+            logger.warning(" [bold red]CUDA is NOT available.[/bold red] PyTorch cannot see your GPU.", extra={"markup": True})
+            logger.info(f"Using device: [bold yellow]{device}[/bold yellow]", extra={"markup": True})
     
     if args.step in ["data", "all"]:
         from src.steps.data_step import run_data_step
