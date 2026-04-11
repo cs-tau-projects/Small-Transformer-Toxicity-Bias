@@ -44,6 +44,14 @@ tiny-run:
 run-all:
 	python main.py --step all
 
+run-scientific:
+	@echo "Running with Scientific Sampling (20k Train, Full Test)..."
+	python main.py --step all --train_samples 20000 --eval_samples -1
+
+run-full:
+	@echo "Running on the ENTIRE 1.8M dataset (Warning: This will take several days)..."
+	python main.py --step all --train_samples -1 --eval_samples -1
+
 data:
 	python main.py --step data
 

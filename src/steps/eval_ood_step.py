@@ -148,39 +148,45 @@ def load_toxigen_dataset(cache_dir, eval_samples=-1, seed=42):
     return df
 
 def eval_baseline_ood(results_dir, df):
-    """Evaluates the saved TF-IDF + Logistic Regression baseline on ToxiGen."""
-    baseline_path = os.path.join(results_dir, "baseline_pipeline.joblib")
-    if not os.path.exists(baseline_path):
-        print(f"\nCould not find baseline pipeline at {baseline_path}. Please run 'make baseline' first to include it in OOD results.")
-        return None
+    """Evaluates saved baselines (Logistic Regression and Naive) on ToxiGen."""
+    baselines = [
+        ("Baseline (TF-IDF + LR)", "baseline_pipeline.joblib", "preds_Baseline_ood.csv"),
+        ("Naive (Majority Vote)", "naive_baseline.joblib", "preds_Naive_ood.csv")
+    ]
+    
+    baseline_metrics_list = []
 
-    print("\n\nEvaluating Baseline (TF-IDF + LR) on OOD data...")
-    try:
-        pipeline = joblib.load(baseline_path)
-        inference_text = df["text"] if "text" in df.columns else df.get("generation", df.get("comment_text", None))
+    for model_name, filename, preds_filename in baselines:
+        baseline_path = os.path.join(results_dir, filename)
+        if not os.path.exists(baseline_path):
+            print(f"Skipping {model_name}: could not find {baseline_path}")
+            continue
 
-        if inference_text is not None:
+        print(f"\nEvaluating {model_name} on OOD data...")
+        try:
+            model = joblib.load(baseline_path)
+            inference_text = df["text"]
+            
             X_val = [str(t) if t is not None else "" for t in inference_text]
-            y_pred_probs = pipeline.predict_proba(X_val)[:, 1]
+            # Both LogisticRegression and MajorityVoteClassifier support predict_proba
+            y_pred_probs = model.predict_proba(X_val)[:, 1]
 
             df_with_preds = df.copy()
             df_with_preds['toxicity_score'] = y_pred_probs
             df_with_preds['label'] = df['label']
             
-            metrics_df = extract_toxigen_identities_and_evaluate('Baseline (TF-IDF + LR)', df_with_preds)
+            metrics_df = extract_toxigen_identities_and_evaluate(model_name, df_with_preds)
+            baseline_metrics_list.append(metrics_df)
             
             preds_df = df_with_preds[['text', 'toxicity_score']]
-            preds_out_path = os.path.join(results_dir, "preds_Baseline_ood.csv")
+            preds_out_path = os.path.join(results_dir, preds_filename)
             preds_df.to_csv(preds_out_path, index=False)
-            print(f"Saved Baseline OOD predictions to {preds_out_path}")
+            print(f"Saved {model_name} OOD predictions to {preds_out_path}")
             
-            return metrics_df
-        else:
-            print("Warning: Could not find text column in ToxiGen dataset for baseline evaluation.")
-            return None
-    except Exception as e:
-        print(f"Error evaluating baseline on OOD data: {e}")
-        return None
+        except Exception as e:
+            print(f"Error evaluating {model_name} on OOD data: {e}")
+            
+    return baseline_metrics_list if baseline_metrics_list else None
 
 def run_eval_ood_step(results_dir, cache_dir, output_dir, models, device, eval_samples=-1, seed=42):
     print("\n--- Running OOD Evaluation (ToxiGen) ---")
@@ -189,10 +195,15 @@ def run_eval_ood_step(results_dir, cache_dir, output_dir, models, device, eval_s
     all_metrics = []
     summary_results = []
 
-    # 1. Evaluate Baseline Model if it exists
-    baseline_metrics = eval_baseline_ood(results_dir, df)
-    if baseline_metrics is not None:
-        summary_results.append(baseline_metrics)
+    # 1. Evaluate Baseline Models (ML & Naive) if they exist
+    baseline_metrics_list = eval_baseline_ood(results_dir, df)
+    if baseline_metrics_list is not None:
+        summary_results.extend(baseline_metrics_list)
+        
+    # Save the standardized ToxiGen dataset for reuse (e.g., LLaMA step)
+    toxigen_save_path = os.path.join(output_dir, "data", "toxigen_standardized.parquet")
+    df.to_parquet(toxigen_save_path, index=False)
+    print(f"Saved standardized ToxiGen dataset for LLaMA reuse to {toxigen_save_path}")
 
     # 2. Evaluate Transformer Models
     for base_model_name in tqdm(models, desc="OOD eval models"):

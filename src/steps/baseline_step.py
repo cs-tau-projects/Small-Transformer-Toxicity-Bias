@@ -48,6 +48,12 @@ def run_baseline_step(data_dir, results_dir):
     naive_model = MajorityVoteClassifier()
     naive_model.fit(X_train, y_train)
     
+    # Save the naive model for OOD reuse
+    import joblib
+    naive_path = os.path.join(results_dir, "naive_baseline.joblib")
+    joblib.dump(naive_model, naive_path)
+    print(f"Saved Naive Baseline model to {naive_path}")
+    
     print("Evaluating Naive Baseline...")
     y_pred_probs_naive = naive_model.predict_proba(X_test)[:, 1]
     

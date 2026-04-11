@@ -8,11 +8,11 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from src.evaluator import evaluate_bias
 from src.steps.utils import load_saved_data
 
-def get_llama_toxicity_scores(model, tokenizer, dataset, device, batch_size=8):
+def get_llama_toxicity_scores(model, tokenizer, texts, device, batch_size=8, total=None, save_every=None, save_path=None):
     """
     Zero-shot toxicity scoring via next-token probability.
-    Prompt: '...comment... Is this comment toxic? Answer: '
-    We take P(token "Yes") / (P("Yes") + P("No")) as the toxicity score.
+    Texts can be any iterable (list, generator, etc.) for memory efficiency.
+    If save_every and save_path are provided, saves partial results periodically.
     """
     model.eval()
     model.to(device)
@@ -21,18 +21,34 @@ def get_llama_toxicity_scores(model, tokenizer, dataset, device, batch_size=8):
     no_id = tokenizer.encode("No", add_special_tokens=False)[0]
 
     all_scores = []
-    texts = dataset["comment_text"]
+    
+    # Helper to batch an iterable
+    from itertools import islice
+    def batch_iterator(iterable, size):
+        it = iter(iterable)
+        while True:
+            chunk = list(islice(it, size))
+            if not chunk:
+                break
+            yield chunk
 
     with torch.no_grad():
-        for i in tqdm(range(0, len(texts), batch_size), desc="LLaMA zero-shot"):
-            batch = texts[i : i + batch_size]
+        num_batches = (total + batch_size - 1) // batch_size if total else None
+        
+        for i, batch in enumerate(tqdm(batch_iterator(texts, batch_size), desc="LLaMA zero-shot", total=num_batches)):
             prompts = [f'Comment: "{t}"\nIs this comment toxic? Answer:' for t in batch]
             enc = tokenizer(prompts, return_tensors="pt", padding=True, truncation=True, max_length=256).to(device)
-            logits = model(**enc).logits  # (B, seq_len, vocab)
-            last_logits = logits[:, -1, :]  # logits at the final position
+            logits = model(**enc).logits 
+            last_logits = logits[:, -1, :] 
             yes_no = last_logits[:, [yes_id, no_id]]
             probs = torch.softmax(yes_no, dim=-1)[:, 0]  # P(Yes)
             all_scores.extend(probs.cpu().float().numpy())
+            
+            # Periodic saving for long runs
+            if save_every and save_path and (i + 1) % (save_every // batch_size) == 0:
+                temp_df = pd.DataFrame({"toxicity_score": all_scores})
+                temp_df.to_csv(save_path + ".partial", index=False)
+                # We don't print every time to avoid log spam, just a silent save
 
     return np.array(all_scores)
 
@@ -62,27 +78,69 @@ def run_llama_step(data_dir, results_dir, cache_dir, llama_model, device):
             torch_dtype=torch.float16 if device.type == "cuda" else torch.float32,
         )
 
-        y_pred_probs = get_llama_toxicity_scores(model, tokenizer, test_ds, device)
+        # 1. In-Distribution (ID) Evaluation on Jigsaw
+        print("\n--- Evaluating LLaMA on Jigsaw (ID) ---")
+        preds_id_out_path = os.path.join(results_dir, f"preds_{safe_name}_llama.csv")
+        y_pred_probs_id = get_llama_toxicity_scores(
+            model, tokenizer, test_ds["comment_text"], device, total=len(test_ds),
+            save_every=10000, save_path=preds_id_out_path
+        )
 
         y_test = np.array(test_ds["is_toxic"])
         identities_test = np.array([test_ds[col] for col in identity_columns]).T
 
-        metrics_df = evaluate_bias(
+        metrics_id_df = evaluate_bias(
             y_true=y_test,
-            y_pred_probs=y_pred_probs,
+            y_pred_probs=y_pred_probs_id,
             identity_matrix=identities_test,
             identity_columns=identity_columns,
             threshold=0.5,
         )
 
-        safe_name = llama_model.replace("/", "_")
-        out_path = os.path.join(results_dir, f"{safe_name}_raw_metrics.csv")
-        metrics_df.to_csv(out_path, index=False)
+        metrics_id_out_path = os.path.join(results_dir, f"{safe_name}_raw_metrics.csv")
+        metrics_id_df.to_csv(metrics_id_out_path, index=False)
         
-        preds_df = pd.DataFrame({'comment_text': test_ds['comment_text'], 'toxicity_score': y_pred_probs})
-        preds_out_path = os.path.join(results_dir, f"preds_{safe_name}_llama.csv")
-        preds_df.to_csv(preds_out_path, index=False)
+        preds_id_df = pd.DataFrame({'comment_text': test_ds['comment_text'], 'toxicity_score': y_pred_probs_id})
+        preds_id_df.to_csv(preds_id_out_path, index=False)
+        # Cleanup partial file if it exists
+        if os.path.exists(preds_id_out_path + ".partial"):
+            os.remove(preds_id_out_path + ".partial")
+        print(f"Saved LLaMA ID results to {metrics_id_out_path} and predictions to {preds_id_out_path}")
+
+        # 2. Out-of-Distribution (OOD) Evaluation on ToxiGen
+        toxigen_path = os.path.join(data_dir, "toxigen_standardized.parquet")
+        if os.path.exists(toxigen_path):
+            print("\n--- Evaluating LLaMA on ToxiGen (OOD) ---")
+            df_ood = pd.read_parquet(toxigen_path)
+            
+            preds_ood_out_path = os.path.join(results_dir, f"preds_{safe_name}_llama_ood.csv")
+            y_pred_probs_ood = get_llama_toxicity_scores(
+                model, tokenizer, df_ood["text"], device, total=len(df_ood),
+                save_every=10000, save_path=preds_ood_out_path
+            )
+            
+            df_ood_with_preds = df_ood.copy()
+            df_ood_with_preds['toxicity_score'] = y_pred_probs_ood
+            
+            from src.steps.eval_ood_step import extract_toxigen_identities_and_evaluate
+            metrics_ood_df = extract_toxigen_identities_and_evaluate(f"{llama_model} (Zero-shot)", df_ood_with_preds)
+            
+            metrics_ood_out_path = os.path.join(results_dir, f"{safe_name}_ood_metrics.csv")
+            metrics_ood_df.to_csv(metrics_ood_out_path, index=False)
+            
+            preds_ood_df = pd.DataFrame({'text': df_ood['text'], 'toxicity_score': y_pred_probs_ood})
+            preds_ood_df.to_csv(preds_ood_out_path, index=False)
+            # Cleanup partial file
+            if os.path.exists(preds_ood_out_path + ".partial"):
+                os.remove(preds_ood_out_path + ".partial")
+            print(f"Saved LLaMA OOD results to {metrics_ood_out_path} and predictions to {preds_ood_out_path}")
+        else:
+            print(f"\n[WARNING] Standardized ToxiGen dataset not found at {toxigen_path}. Skipping LLaMA OOD evaluation.")
+            print("Hint: Run 'make eval-ood' first to generate the standardized ToxiGen file.")
+
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         err_msg = str(e)
         if "403" in err_msg or "gated" in err_msg.lower():
             print("\n[ERROR] Authentication failure or Access Denied to LLaMA model.")
