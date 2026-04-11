@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-from src.steps.utils import load_saved_data
+from src.steps.utils import load_saved_data, setup_logging
 from datetime import datetime
 from rich.console import Console
 from rich.table import Table
@@ -262,12 +262,15 @@ def run_report_step(data_dir, results_dir, cache_dir, llama_model, models, eval_
             try_merge(toxigen_df, f"Raw {model_name}", f"preds_{safe}_raw_ood.csv")
             try_merge(toxigen_df, f"Fine-tuned {model_name}", f"preds_{safe}_finetuned_ood.csv")
             
-        try_merge(jigsaw_df, "Baseline", "preds_Baseline.csv")
-        try_merge(toxigen_df, "Baseline", "preds_Baseline_ood.csv")
+        try_merge(jigsaw_df, "ML Baseline (LR)", "preds_Baseline.csv")
+        try_merge(toxigen_df, "ML Baseline (LR)", "preds_Baseline_ood.csv")
+        
+        try_merge(jigsaw_df, "Naive Baseline (Majority)", "preds_Naive.csv")
+        try_merge(toxigen_df, "Naive Baseline (Majority)", "preds_Naive_ood.csv")
         
         safe_llama = llama_model.replace("/", "_")
-        try_merge(jigsaw_df, llama_model, f"preds_{safe_llama}_llama.csv")
-        try_merge(toxigen_df, llama_model, f"preds_{safe_llama}_llama_ood.csv")
+        try_merge(jigsaw_df, f"LLaMA ({llama_model})", f"preds_{safe_llama}_llama.csv")
+        try_merge(toxigen_df, f"LLaMA ({llama_model})", f"preds_{safe_llama}_llama_ood.csv")
 
         final_preds = pd.concat([jigsaw_df, toxigen_df], ignore_index=True)
         out_path = os.path.join(results_dir, "final_predictions.csv")

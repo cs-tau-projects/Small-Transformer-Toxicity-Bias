@@ -56,6 +56,7 @@ def run_llama_step(data_dir, results_dir, cache_dir, llama_model, device):
     _, test_ds, identity_columns = load_saved_data(data_dir)
 
     print(f"\nZero-shot toxicity scoring with {llama_model}...")
+    safe_name = llama_model.replace("/", "_")
 
     # Pre-check authentication for gated models
     api = HfApi()

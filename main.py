@@ -7,7 +7,7 @@ from src.steps.utils import setup_logging
 def main():
     parser = argparse.ArgumentParser(description="Toxicity Bias Evaluation Pipeline")
     parser.add_argument("--step", type=str, default="all",
-                        choices=["data", "baseline", "eval-raw", "finetune", "eval-finetuned", "eval-ood", "llama", "report", "all"],
+                        choices=["data", "baseline", "eval-raw", "finetune", "eval-finetuned", "eval-ood", "llama", "analysis", "report", "all"],
                         help="Which step of the pipeline to run.")
     parser.add_argument("--output_dir", type=str, default="./outputs",
                         help="Base directory for caches, models, and outputs.")
@@ -83,6 +83,13 @@ def main():
         from src.steps.llama_step import run_llama_step
         logger.info("Running [bold cyan]LLaMA Evaluation[/bold cyan] step", extra={"markup": True})
         run_llama_step(data_dir, results_dir, cache_dir, args.llama_model, device)
+
+    if args.step in ["analysis", "all"]:
+        from src.analysis import run_analysis_step
+        logger.info("Running [bold cyan]Dataset & Error Analysis[/bold cyan] step", extra={"markup": True})
+        # Default to the first model in the list for error analysis if none specific is provided
+        primary_model = args.models[0] if args.models else None
+        run_analysis_step(data_dir, results_dir, model_name_for_errors=primary_model)
 
     if args.step in ["report", "all"]:
         from src.steps.report_step import run_report_step
