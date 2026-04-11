@@ -18,16 +18,12 @@ def compute_subgroup_auc(y_true, y_pred, subgroup_mask):
 
 def compute_fnr(y_true, y_pred_binary):
     """Computes False Negative Rate."""
-    if len(np.unique(y_true)) < 2:
-        return np.nan
-    tn, fp, fn, tp = confusion_matrix(y_true, y_pred_binary).ravel()
+    tn, fp, fn, tp = confusion_matrix(y_true, y_pred_binary, labels=[0, 1]).ravel()
     return fn / (fn + tp) if (fn + tp) > 0 else np.nan
 
 def compute_fpr(y_true, y_pred_binary):
     """Computes False Positive Rate."""
-    if len(np.unique(y_true)) < 2:
-        return np.nan
-    tn, fp, fn, tp = confusion_matrix(y_true, y_pred_binary).ravel()
+    tn, fp, fn, tp = confusion_matrix(y_true, y_pred_binary, labels=[0, 1]).ravel()
     return fp / (fp + tn) if (fp + tn) > 0 else np.nan
 
 
