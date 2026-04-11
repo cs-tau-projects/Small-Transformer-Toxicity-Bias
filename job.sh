@@ -1,55 +1,69 @@
 #!/bin/bash
-#SBATCH --job-name=jigsaw_toxicity
-#SBATCH --output=jigsaw_toxicity_%j.out
-#SBATCH --error=jigsaw_toxicity_%j.err
+#SBATCH --job-name=toxicity-bias-4
+#SBATCH --output=logs/toxicity_%j.out
+#SBATCH --error=logs/toxicity_%j.err
 #SBATCH --partition=studentkillable
+#SBATCH --time=24:00:00
+#SBATCH --signal=USR1@120
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
 #SBATCH --gres=gpu:1
-#SBATCH --mem=32G
-#SBATCH --time=24:00:00
+#SBATCH --mem=48000
 
-# Exit on error
-set -e
+set -euo pipefail
 
-# Setup User specific output mapping
-# You must provide YOUR username here, or we calculate it dynamically
-USER_NAME=$(whoami)
-BASE_OUTPUT_DIR="/vol/joberant_nobck/data/NLP_368307701_2526a/${USER_NAME}"
+# ── Storage Paths ───────────────────────────────────────
+# All data, models, caches, and results go to the course storage directory
+# (NOT the home dir — per assignment instructions)
+COURSE_STORAGE="/vol/joberant_nobck/data/NLP_368307701_2526a/$(whoami)"
+OUTPUT_DIR="${COURSE_STORAGE}/outputs"
 
-echo "Starting Toxicity Pipeline Job..."
-echo "Job ID: $SLURM_JOB_ID"
-echo "Output Directory: $BASE_OUTPUT_DIR"
-echo "Node: $SLURMD_NODENAME"
+# ── Diagnostics ─────────────────────────────────────────
+echo "═══════════════════════════════════════════════════"
+echo "  Job ID    : $SLURM_JOB_ID"
+echo "  Node      : $SLURMD_NODENAME"
+echo "  Partition : $SLURM_JOB_PARTITION"
+echo "  GPUs      : ${SLURM_GPUS_ON_NODE:-1}"
+echo "  Time      : $(date)"
+echo "  Working   : $(pwd)"
+echo "  Storage   : $COURSE_STORAGE"
+echo "  Output    : $OUTPUT_DIR"
+echo "═══════════════════════════════════════════════════"
+nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+echo ""
 
-# Activate environment if we are using uv / venv. 
-# Adjust this path if the virtual environment is stored elsewhere.
-VENV_PATH="./.venv"
-if [ -d "$VENV_PATH" ]; then
-    echo "Activating virtual environment at $VENV_PATH..."
-    source "$VENV_PATH/bin/activate"
-else
-    echo "Warning: No virtual environment found at $VENV_PATH. Using default system python."
+# ── Environment ─────────────────────────────────────────
+# Temporarily disable 'nounset' because .bashrc often uses unset variables like PS1
+set +u
+source ~/.bashrc
+conda activate venv
+set -u
+echo "✓ Conda env active  ($(python --version))"
+
+# Load HF token from .env (required for gated models like LLaMA)
+if [ -f ".env" ]; then
+    export $(grep -v '^#' .env | xargs)
+    echo "✓ Loaded .env"
 fi
 
-# We don't have access to this directory during dry-runs so we ensure it's created on the slurm node
-mkdir -p "$BASE_OUTPUT_DIR"
+# Point HuggingFace cache at course storage (avoids home quota issues)
+export HF_HOME="${COURSE_STORAGE}/.hf_cache"
+mkdir -p "$HF_HOME"
+echo "✓ HF_HOME=$HF_HOME"
 
-# 1. Run Baseline
-echo ""
-echo "======================================"
-echo "      RUNNING LOGISTIC BASELINE       "
-echo "======================================"
-PYTHONPATH=src python -m src.baseline --train
+# Ensure output directory exists
+mkdir -p "$OUTPUT_DIR"
 
-# 2. Run Training
+# ── Run Pipeline ────────────────────────────────────────
 echo ""
-echo "======================================"
-echo "          RUNNING DISTILBERT          "
-echo "======================================"
-# Pass the required base directory argument to train.py
-python -m src.train --output_base_dir "$BASE_OUTPUT_DIR" --epochs 3 --batch_size 32
+echo "═══════════════════════════════════════════════════"
+echo "           STARTING: make run-all"
+echo "═══════════════════════════════════════════════════"
+
+python main.py --step all --output_dir "$OUTPUT_DIR"
 
 echo ""
-echo "Job Completed Successfully!"
+echo "═══════════════════════════════════════════════════"
+echo "  ✓ Pipeline completed at $(date)"
+echo "═══════════════════════════════════════════════════"

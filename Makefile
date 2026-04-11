@@ -1,4 +1,4 @@
-.PHONY: help install test run-all tiny-run data baseline eval-raw finetune eval-finetuned eval-ood llama analysis report clean lint format check
+.PHONY: help install test run-all tiny-run data baseline eval-raw finetune eval-finetuned eval-ood llama analysis report clean lint format check slurm
 
 PYTHON = python
 
@@ -20,6 +20,7 @@ help:
 	@echo "  make analysis        - Run dataset statistics and error sampling"
 	@echo "  make hf-login        - Authenticate with Hugging Face Hub"
 	@echo "  make report          - Generate final evaluation report"
+	@echo "  make slurm           - Submit the pipeline as a Slurm job (sbatch)"
 	@echo "  make clean           - Remove cached files and outputs"
 
 install:
@@ -82,6 +83,11 @@ hf-login:
 
 report:
 	python main.py --step report
+
+slurm:
+	@mkdir -p logs
+	sbatch job.sh
+	@echo "Monitor with: squeue --me"
 
 clean:
 	@python -c "import os, shutil, glob; ans=input('Are you sure you want to clear all trash (outputs, caches, etc.)? [y/n] '); exit(1) if ans.lower()!='y' else [shutil.rmtree(d, ignore_errors=True) for d in ['outputs','.pytest_cache','.hf_cache','.ruff_cache'] + glob.glob('**/__pycache__', recursive=True)]; print('Trash cleared successfully.')"
