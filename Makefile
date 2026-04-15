@@ -92,7 +92,7 @@ slurm:
 slurm-test:
 	@mkdir -p logs
 	@echo "Submitting quick validation job..."
-	sbatch --job-name=tox-test --time=00:20:00 job.sh 
+	sbatch --job-name=tox-test --time=24:00:00 job.sh 
 
 conda-fix-torch:
 	@echo "Ensuring PyTorch is installed with CUDA support in the active conda environment..."
