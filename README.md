@@ -20,15 +20,19 @@ While Large Language Models (LLMs) are currently prominent, many deployed modera
 
 For better reproducibility, we recommend using Conda or a Python virtual environment.
 
-### Using Conda (Recommended)
+### Using Conda
 ```bash
-conda env create -f environment.yml
-conda activate toxicity-bias
-```
+# Core torch version for the TAU slurm environment
+pip install torch --index-url https://download.pytorch.org/whl/cu124
 
-### Using Pip
-```bash
-make install
+# Core ML and Data stack
+pip install datasets transformers accelerate>=1.1.0 huggingface_hub
+
+# Data processing and Math
+pip install pandas scikit-learn pyarrow numpy
+
+# Utilities and Tooling
+pip install python-dotenv tqdm pytest rich ruff
 ```
 
 ## How to Run
