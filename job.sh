@@ -43,7 +43,7 @@ echo "✓ Conda env active  ($(python --version))"
 
 # Try loading CUDA modules (Common on TAU CS Slurm)
 echo "Attempting to load CUDA modules..."
-module load cuda/12.1 || module load cuda/11.8 || echo "⚠ No standard CUDA module found, relying on environment."
+module load cuda/12.4 || module load cuda/12.1 || module load cuda/11.8 || echo "⚠ No standard CUDA module found, relying on environment."
 
 # Load HF token from .env (required for gated models like LLaMA)
 if [ -f ".env" ]; then
