@@ -124,17 +124,25 @@ def run_llama_step(data_dir, results_dir, cache_dir, llama_model, device):
             df_ood_with_preds['toxicity_score'] = y_pred_probs_ood
             
             from src.steps.eval_ood_step import extract_toxigen_identities_and_evaluate
-            metrics_ood_df = extract_toxigen_identities_and_evaluate(f"{llama_model} (Zero-shot)", df_ood_with_preds)
-            
-            metrics_ood_out_path = os.path.join(results_dir, f"{safe_name}_ood_metrics.csv")
-            metrics_ood_df.to_csv(metrics_ood_out_path, index=False)
-            
+            llama_display_name = f"{llama_model} (Zero-shot)"
+            metrics_ood_df = extract_toxigen_identities_and_evaluate(llama_display_name, df_ood_with_preds)
+
+            # Append to the shared OOD metrics file so the reporter picks it up uniformly
+            metrics_ood_out_path = os.path.join(results_dir, "ood_toxigen_metrics.csv")
+            if os.path.exists(metrics_ood_out_path):
+                existing = pd.read_csv(metrics_ood_out_path)
+                existing = existing[existing["Model"] != llama_display_name]
+                combined = pd.concat([existing, metrics_ood_df], ignore_index=True)
+            else:
+                combined = metrics_ood_df
+            combined.to_csv(metrics_ood_out_path, index=False)
+
             preds_ood_df = pd.DataFrame({'text': df_ood['text'], 'toxicity_score': y_pred_probs_ood})
             preds_ood_df.to_csv(preds_ood_out_path, index=False)
             # Cleanup partial file
             if os.path.exists(preds_ood_out_path + ".partial"):
                 os.remove(preds_ood_out_path + ".partial")
-            print(f"Saved LLaMA OOD results to {metrics_ood_out_path} and predictions to {preds_ood_out_path}")
+            print(f"Appended LLaMA OOD results to {metrics_ood_out_path} and saved predictions to {preds_ood_out_path}")
         else:
             print(f"\n[WARNING] Standardized ToxiGen dataset not found at {toxigen_path}. Skipping LLaMA OOD evaluation.")
             print("Hint: Run 'make eval-ood' first to generate the standardized ToxiGen file.")
