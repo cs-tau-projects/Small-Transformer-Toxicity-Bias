@@ -49,10 +49,13 @@ def download_and_prep_jigsaw(split="train", threshold=0.5, cache_dir=None):
     # Discover dynamically which identity columns were kept
     kept_identities = [col for col in ALL_IDENTITY_COLUMNS if col in ds.column_names]
 
+    # The training split uses "target", but the test set uses "toxicity"
+    target_col = "target" if "target" in ds.column_names else "toxicity"
+
     # Process directly using Arrow rather than Pandas
     def process_batch(examples):
         # Binarize toxicity target
-        is_toxic_batch = [int((target or 0) >= threshold) for target in examples["target"]]
+        is_toxic_batch = [int((t_val or 0) >= threshold) for t_val in examples[target_col]]
 
         # Ensure comment_text is always a string (sklearn/transformers crash on None)
         comments = [str(t) if t is not None else "" for t in examples["comment_text"]]
@@ -68,8 +71,12 @@ def download_and_prep_jigsaw(split="train", threshold=0.5, cache_dir=None):
     ds = ds.map(process_batch, batched=True, desc="Processing targets and identities")
 
     # Subselect columns to save memory
-    keep_cols = ["id", "comment_text", "target", "is_toxic"] + kept_identities
+    keep_cols = ["id", "comment_text", target_col, "is_toxic"] + kept_identities
     ds = ds.select_columns([c for c in keep_cols if c in ds.column_names])
+
+    # To keep downstream scripts stable, we'll rename 'toxicity' back to 'target' if necessary
+    if target_col != "target":
+        ds = ds.rename_column(target_col, "target")
 
     return ds, kept_identities
 

@@ -5,18 +5,18 @@ from src.data.dataset import download_and_prep_jigsaw
 
 def run_data_step(cache_dir, data_dir, train_samples=20000, eval_samples=5000, seed=42):
     print("\nLoading and Splitting Dataset...")
-    full_ds, identity_columns = download_and_prep_jigsaw("train", cache_dir=cache_dir)
-    full_ds = full_ds.shuffle(seed=seed)
+    train_ds, train_id_cols = download_and_prep_jigsaw("train", cache_dir=cache_dir)
+    test_ds, test_id_cols = download_and_prep_jigsaw("test", cache_dir=cache_dir)
     
-    # Implementing 80/10/10 split
-    n = len(full_ds)
-    train_end = int(0.8 * n)
-    val_end = int(0.9 * n)
+    train_ds = train_ds.shuffle(seed=seed)
+    test_ds = test_ds.shuffle(seed=seed)
     
-    train_ds = full_ds.select(range(train_end))
-    val_ds = full_ds.select(range(train_end, val_end))
-    test_ds = full_ds.select(range(val_end, n))
-
+    # Create an internal validation split from the train dataset (10%)
+    n_train = len(train_ds)
+    val_idx = int(0.9 * n_train)
+    val_ds = train_ds.select(range(val_idx, n_train))
+    train_ds = train_ds.select(range(val_idx))
+    
     # Slice training set if limit is set
     if train_samples > 0:
         train_ds = train_ds.select(range(min(train_samples, len(train_ds))))
@@ -36,6 +36,9 @@ def run_data_step(cache_dir, data_dir, train_samples=20000, eval_samples=5000, s
     # But for a smoother transition during this turn:
     train_ds.save_to_disk(os.path.join(data_dir, "baseline_train"))
     test_ds.save_to_disk(os.path.join(data_dir, "eval"))
+    
+    # Maintain common identity columns
+    identity_columns = list(set(train_id_cols).intersection(set(test_id_cols)))
     
     with open(os.path.join(data_dir, "identity_columns.json"), "w") as f:
         json.dump(identity_columns, f)

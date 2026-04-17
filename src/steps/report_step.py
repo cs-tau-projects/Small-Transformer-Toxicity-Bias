@@ -259,7 +259,6 @@ def run_report_step(data_dir, results_dir, cache_dir, llama_model, models, eval_
             safe = model_name.replace("/", "_")
             try_merge(jigsaw_df, f"Raw {model_name}", f"preds_{safe}_raw.csv")
             try_merge(jigsaw_df, f"Fine-tuned {model_name}", f"preds_{safe}_finetuned.csv")
-            try_merge(toxigen_df, f"Raw {model_name}", f"preds_{safe}_raw_ood.csv")
             try_merge(toxigen_df, f"Fine-tuned {model_name}", f"preds_{safe}_finetuned_ood.csv")
             
         try_merge(jigsaw_df, "ML Baseline (LR)", "preds_Baseline.csv")
