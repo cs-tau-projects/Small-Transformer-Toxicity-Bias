@@ -198,10 +198,9 @@ def run_report_step(data_dir, results_dir, cache_dir, llama_model, models, eval_
                 real_name = reverse_map.get(safe_name, safe_name)
                 all_results_dict[f"{real_name} Finetuned"] = df
             elif fname == "ood_toxigen_metrics.csv":
-                # OOD CSV contains multiple models, split them out
+                # OOD CSV contains multiple models (transformers, baselines, and LLaMA zero-shot)
                 for model_display_name in df['Model'].unique():
                     model_df = df[df['Model'] == model_display_name].copy()
-                    # Keep only the standard metric columns
                     all_results_dict[f"{model_display_name} OOD"] = model_df
 
     final_df = format_final_report(all_results_dict)
