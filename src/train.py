@@ -72,10 +72,14 @@ def compute_metrics(eval_pred, identity_columns, eval_dataset):
         ident = row["Identity"]
         if not np.isnan(row["4. Subgroup AUC"]):
             metrics_dict[f"{ident}_subgroup_auc"] = row["4. Subgroup AUC"]
-        if not np.isnan(row["5. Subgroup FNR"]):
-            metrics_dict[f"{ident}_subgroup_fnr"] = row["5. Subgroup FNR"]
-        if not np.isnan(row["6. Subgroup FPR"]):
-            metrics_dict[f"{ident}_subgroup_fpr"] = row["6. Subgroup FPR"]
+        if not np.isnan(row["5. BPSN AUC"]):
+            metrics_dict[f"{ident}_bpsn_auc"] = row["5. BPSN AUC"]
+        if not np.isnan(row["6. BNSP AUC"]):
+            metrics_dict[f"{ident}_bnsp_auc"] = row["6. BNSP AUC"]
+        if not np.isnan(row["7. Subgroup FNR"]):
+            metrics_dict[f"{ident}_subgroup_fnr"] = row["7. Subgroup FNR"]
+        if not np.isnan(row["8. Subgroup FPR"]):
+            metrics_dict[f"{ident}_subgroup_fpr"] = row["8. Subgroup FPR"]
 
     return metrics_dict
 

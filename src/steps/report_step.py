@@ -16,6 +16,8 @@ CSV_HEADERS = [
     "overall_auc",
     "subgroup",
     "subgroup_auc",
+    "bpsn_auc",
+    "bnsp_auc",
     "subgroup_fnr",
     "subgroup_fpr",
 ]
@@ -62,8 +64,10 @@ def log_results_to_csv(results_dir, all_results_dict, experiment_name="default_e
                 "overall_auc": overall_auc,
                 "subgroup": row["Identity"] if "Identity" in row else row.get("subgroup", "Overall"),
                 "subgroup_auc": row.get("4. Subgroup AUC"),
-                "subgroup_fnr": row.get("5. Subgroup FNR"),
-                "subgroup_fpr": row.get("6. Subgroup FPR"),
+                "bpsn_auc": row.get("5. BPSN AUC"),
+                "bnsp_auc": row.get("6. BNSP AUC"),
+                "subgroup_fnr": row.get("7. Subgroup FNR"),
+                "subgroup_fpr": row.get("8. Subgroup FPR"),
             }
             new_rows.append(new_row)
 
@@ -157,16 +161,26 @@ def format_final_report(all_results_dict):
     subgroup_cols = ['Identity'] + [c for c in final_df.columns if 'Subgroup AUC' in c]
     if subgroup_cols[1:]:
         display_rich_table(final_df[subgroup_cols], "2. Subgroup AUC Comparison")
-    
-    # 3. FNR Comparison
+
+    # 3. BPSN AUC Comparison (over-flagging)
+    bpsn_cols = ['Identity'] + [c for c in final_df.columns if 'BPSN AUC' in c]
+    if bpsn_cols[1:]:
+        display_rich_table(final_df[bpsn_cols], "3. BPSN AUC Comparison (Over-flagging Detection)")
+
+    # 4. BNSP AUC Comparison (under-flagging)
+    bnsp_cols = ['Identity'] + [c for c in final_df.columns if 'BNSP AUC' in c]
+    if bnsp_cols[1:]:
+        display_rich_table(final_df[bnsp_cols], "4. BNSP AUC Comparison (Under-flagging Detection)")
+
+    # 5. FNR Comparison
     fnr_cols = ['Identity'] + [c for c in final_df.columns if 'FNR' in c]
     if fnr_cols[1:]:
-        display_rich_table(final_df[fnr_cols], "3. FNR Comparison (Subgroup and Overall)")
+        display_rich_table(final_df[fnr_cols], "5. FNR Comparison (Subgroup and Overall)")
 
-    # 4. FPR Comparison
+    # 6. FPR Comparison
     fpr_cols = ['Identity'] + [c for c in final_df.columns if 'FPR' in c]
     if fpr_cols[1:]:
-        display_rich_table(final_df[fpr_cols], "4. FPR Comparison (Subgroup and Overall)")
+        display_rich_table(final_df[fpr_cols], "6. FPR Comparison (Subgroup and Overall)")
 
     return final_df
 

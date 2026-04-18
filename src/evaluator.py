@@ -18,6 +18,52 @@ def compute_subgroup_auc(y_true, y_pred, subgroup_mask):
     return roc_auc_score(subgroup_y_true, subgroup_y_pred)
 
 
+def compute_bpsn_auc(y_true, y_pred, subgroup_mask):
+    """
+    Background Positive, Subgroup Negative AUC.
+
+    Uses the union of:
+      - Background positives: toxic examples NOT in the subgroup
+      - Subgroup negatives: non-toxic examples IN the subgroup
+
+    Catches models that over-flag the subgroup — i.e., non-toxic subgroup
+    comments are scored higher than background toxic comments.
+    A low BPSN AUC means the model confuses *mentioning the identity* with
+    *being toxic*.
+    """
+    background_positive = (~subgroup_mask) & (y_true == 1)
+    subgroup_negative = subgroup_mask & (y_true == 0)
+    mask = background_positive | subgroup_negative
+
+    if mask.sum() == 0 or len(np.unique(y_true[mask])) < 2:
+        return np.nan
+
+    return roc_auc_score(y_true[mask], y_pred[mask])
+
+
+def compute_bnsp_auc(y_true, y_pred, subgroup_mask):
+    """
+    Background Negative, Subgroup Positive AUC.
+
+    Uses the union of:
+      - Background negatives: non-toxic examples NOT in the subgroup
+      - Subgroup positives: toxic examples IN the subgroup
+
+    Catches models that under-flag the subgroup — i.e., toxic subgroup
+    comments are scored lower than background non-toxic comments.
+    A low BNSP AUC means the model is too lenient on toxic content that
+    mentions this identity.
+    """
+    background_negative = (~subgroup_mask) & (y_true == 0)
+    subgroup_positive = subgroup_mask & (y_true == 1)
+    mask = background_negative | subgroup_positive
+
+    if mask.sum() == 0 or len(np.unique(y_true[mask])) < 2:
+        return np.nan
+
+    return roc_auc_score(y_true[mask], y_pred[mask])
+
+
 def compute_fnr(y_true, y_pred_binary):
     """Computes False Negative Rate."""
     tn, fp, fn, tp = confusion_matrix(y_true, y_pred_binary, labels=[0, 1]).ravel()
@@ -33,7 +79,8 @@ def compute_fpr(y_true, y_pred_binary):
 def evaluate_bias(y_true, y_pred_probs, identity_matrix, identity_columns, threshold=0.5):
     """
     Evaluates predictions against the ground truth and identity annotations.
-    Computes Overall AUC, Overall FNR, Overall FPR, Subgroup AUC, Subgroup FNR, and Subgroup FPR.
+    Computes Overall AUC, Overall FNR, Overall FPR, Subgroup AUC, BPSN AUC, BNSP AUC,
+    Subgroup FNR, and Subgroup FPR.
 
     Args:
         y_true: np.array of shape (N,) with ground truth binary labels
@@ -43,7 +90,8 @@ def evaluate_bias(y_true, y_pred_probs, identity_matrix, identity_columns, thres
         threshold: float, threshold to binarize predictions for FNR computation (default 0.5)
 
     Returns:
-        pd.DataFrame: Table with Overall AUC, Overall FNR, Overall FPR, Subgroup AUC, Subgroup FNR, and Subgroup FPR for each identity.
+        pd.DataFrame: Table with Overall AUC, Overall FNR, Overall FPR, Subgroup AUC, BPSN AUC,
+            BNSP AUC, Subgroup FNR, and Subgroup FPR for each identity.
     """
     y_pred_binary = (y_pred_probs >= threshold).astype(int)
 
@@ -62,11 +110,15 @@ def evaluate_bias(y_true, y_pred_probs, identity_matrix, identity_columns, thres
         # Calculate metrics if there are any examples in the subgroup
         if subgroup_mask.sum() > 0:
             subgroup_auc = compute_subgroup_auc(y_true, y_pred_probs, subgroup_mask)
+            bpsn_auc = compute_bpsn_auc(y_true, y_pred_probs, subgroup_mask)
+            bnsp_auc = compute_bnsp_auc(y_true, y_pred_probs, subgroup_mask)
             subgroup_fnr = compute_fnr(y_true[subgroup_mask], y_pred_binary[subgroup_mask])
             subgroup_fpr = compute_fpr(y_true[subgroup_mask], y_pred_binary[subgroup_mask])
             num_examples = subgroup_mask.sum()
         else:
             subgroup_auc = np.nan
+            bpsn_auc = np.nan
+            bnsp_auc = np.nan
             subgroup_fnr = np.nan
             subgroup_fpr = np.nan
             num_examples = 0
@@ -79,8 +131,10 @@ def evaluate_bias(y_true, y_pred_probs, identity_matrix, identity_columns, thres
                 "2. Overall FNR": overall_fnr,
                 "3. Overall FPR": overall_fpr,
                 "4. Subgroup AUC": subgroup_auc,
-                "5. Subgroup FNR": subgroup_fnr,
-                "6. Subgroup FPR": subgroup_fpr,
+                "5. BPSN AUC": bpsn_auc,
+                "6. BNSP AUC": bnsp_auc,
+                "7. Subgroup FNR": subgroup_fnr,
+                "8. Subgroup FPR": subgroup_fpr,
             }
         )
 
