@@ -4,6 +4,20 @@ import os
 from src.data.dataset import download_and_prep_jigsaw
 
 def run_data_step(cache_dir, data_dir, train_samples=20000, eval_samples=5000, seed=42):
+    # Check if all expected files already exist to skip redundant processing
+    expected_paths = [
+        os.path.join(data_dir, "train"),
+        os.path.join(data_dir, "val"),
+        os.path.join(data_dir, "test"),
+        os.path.join(data_dir, "baseline_train"),
+        os.path.join(data_dir, "eval"),
+        os.path.join(data_dir, "identity_columns.json")
+    ]
+    
+    if all(os.path.exists(p) for p in expected_paths):
+        print(f"Data splits already available in {data_dir}. Skipping loading and splitting.")
+        return
+
     print("\nLoading and Splitting Dataset...")
     train_ds, train_id_cols = download_and_prep_jigsaw("train", cache_dir=cache_dir)
     test_ds, test_id_cols = download_and_prep_jigsaw("test", cache_dir=cache_dir)
