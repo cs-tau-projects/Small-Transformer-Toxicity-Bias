@@ -41,18 +41,18 @@ small-run:
 	python main.py --models distilbert-base-uncased --train_samples 20000 --eval_samples 5000
 
 tiny-run:
-	python main.py --train_samples 100 --eval_samples 100 --step all
+	$(MAKE) run-all ARGS="--train_samples 100 --eval_samples 100 $(ARGS)"
 
 run-all:
-	python main.py --step all
+	python main.py --step all $(ARGS)
 
 run-scientific:
 	@echo "Running with Scientific Sampling (20k Train, Full Test)..."
-	python main.py --step all --train_samples 20000 --eval_samples -1
+	$(MAKE) run-all ARGS="--train_samples 20000 --eval_samples -1 $(ARGS)"
 
 run-full:
 	@echo "Running on the ENTIRE 1.8M dataset (Warning: This will take several days)..."
-	python main.py --step all --train_samples -1 --eval_samples -1
+	$(MAKE) run-all ARGS="--train_samples -1 --eval_samples -1 $(ARGS)"
 
 data:
 	python main.py --step data
@@ -86,13 +86,13 @@ report:
 
 slurm:
 	@mkdir -p logs
-	sbatch job.sh
+	sbatch scripts/run_all_job.sh
 	@echo "Monitor with: squeue --me"
 
-slurm-test:
+slurm-tiny:
 	@mkdir -p logs
 	@echo "Submitting quick validation job..."
-	sbatch --job-name=tox-test --time=24:00:00 job.sh 
+	sbatch scripts/tiny_run_job.sh
 
 conda-fix-torch:
 	@echo "Ensuring PyTorch is installed with CUDA support in the active conda environment..."

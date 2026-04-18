@@ -1,23 +1,43 @@
 #!/bin/bash
-#SBATCH --job-name=toxicity-bias-4
-#SBATCH --output=logs/toxicity_%j.out
-#SBATCH --error=logs/toxicity_%j.err
+#SBATCH --job-name=toxicity-bias-tiny
+#SBATCH --output=logs/toxicity_tiny_%j.out
+#SBATCH --error=logs/toxicity_tiny_%j.err
 #SBATCH --partition=studentkillable
-#SBATCH --time=24:00:00
+#SBATCH --time=01:00:00
 #SBATCH --signal=USR1@120
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
 #SBATCH --gres=gpu:1
-#SBATCH --mem=48000
+#SBATCH --mem=16000
 
 set -euo pipefail
 
+# ── Argument Parsing ────────────────────────────────────
+OUTPUT_SUBDIR=""
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --outputdir)
+      OUTPUT_SUBDIR="$2"
+      shift 2
+      ;;
+    *)
+      if [ -z "$OUTPUT_SUBDIR" ]; then
+        OUTPUT_SUBDIR="$1"
+      fi
+      shift
+      ;;
+  esac
+done
+
 # ── Storage Paths ───────────────────────────────────────
-# All data, models, caches, and results go to the course storage directory
-# (NOT the home dir — per assignment instructions)
 COURSE_STORAGE="/vol/joberant_nobck/data/NLP_368307701_2526a/$(whoami)"
-OUTPUT_DIR="${COURSE_STORAGE}/outputs"
+
+if [ -n "$OUTPUT_SUBDIR" ]; then
+    OUTPUT_DIR="${COURSE_STORAGE}/outputs/${OUTPUT_SUBDIR}"
+else
+    OUTPUT_DIR="${COURSE_STORAGE}/outputs/tiny_run"
+fi
 
 # ── Diagnostics ─────────────────────────────────────────
 echo "═══════════════════════════════════════════════════"
@@ -34,29 +54,24 @@ nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
 echo ""
 
 # ── Environment ─────────────────────────────────────────
-# Temporarily disable 'nounset' because .bashrc often uses unset variables like PS1
 set +u
 source ~/.bashrc
 conda activate venv
 set -u
 echo "✓ Conda env active  ($(python --version))"
 
-# Try loading CUDA modules (Common on TAU CS Slurm)
 echo "Attempting to load CUDA modules..."
 module load cuda/12.4 || module load cuda/12.1 || module load cuda/11.8 || echo "⚠ No standard CUDA module found, relying on environment."
 
-# Load HF token from .env (required for gated models like LLaMA)
 if [ -f ".env" ]; then
     export $(grep -v '^#' .env | xargs)
     echo "✓ Loaded .env"
 fi
 
-# Point HuggingFace cache at course storage (avoids home quota issues)
 export HF_HOME="${COURSE_STORAGE}/.hf_cache"
 mkdir -p "$HF_HOME"
 echo "✓ HF_HOME=$HF_HOME"
 
-# Ensure output directory exists
 mkdir -p "$OUTPUT_DIR"
 
 # ── Diagnostics (GPU/Torch) ─────────────────────────────
@@ -70,10 +85,10 @@ echo ""
 
 # ── Run Pipeline ────────────────────────────────────────
 echo "═══════════════════════════════════════════════════"
-echo "           STARTING: python main.py"
+echo "           STARTING: python main.py (Tiny Run)"
 echo "═══════════════════════════════════════════════════"
 
-python main.py --step all --output_dir "$OUTPUT_DIR"
+make tiny-run ARGS="--output_dir $OUTPUT_DIR"
 
 echo ""
 echo "═══════════════════════════════════════════════════"
