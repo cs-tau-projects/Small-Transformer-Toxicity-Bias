@@ -1,3 +1,4 @@
+import logging
 import os
 import numpy as np
 import pandas as pd
@@ -6,10 +7,12 @@ from src.model.baseline import train_baseline
 from src.model.naive_baseline import MajorityVoteClassifier
 from src.steps.utils import load_saved_data
 
+logger = logging.getLogger("pipeline")
+
 def run_baseline_step(data_dir, results_dir):
     train_ds, test_ds, identity_columns = load_saved_data(data_dir)
 
-    print("\n--- Training Machine Learning Baseline (TF-IDF + LogReg) ---")
+    logger.info("Training Machine Learning Baseline (TF-IDF + LogReg)...")
     # Clean X to ensure no None values (causes sklearn to crash)
     X_train = [str(t) if t is not None else "" for t in train_ds["comment_text"]]
     y_train = train_ds["is_toxic"]
@@ -25,7 +28,7 @@ def run_baseline_step(data_dir, results_dir):
     pipeline_path = os.path.join(results_dir, "baseline_pipeline.joblib")
     pipeline = train_baseline(X_train, y_train, model_save_path=pipeline_path)
 
-    print("Evaluating ML Baseline...")
+    logger.info("Evaluating ML Baseline...")
     y_pred_probs_ml = pipeline.predict_proba(X_test)[:, 1]
 
     metrics_ml_df = evaluate_bias(
@@ -44,7 +47,7 @@ def run_baseline_step(data_dir, results_dir):
     preds_ml_df.to_csv(preds_ml_out_path, index=False)
     
     # 2. Naive Baseline (Majority Vote)
-    print("\n--- Training Naive Baseline (Majority Vote) ---")
+    logger.info("Training Naive Baseline (Majority Vote)...")
     naive_model = MajorityVoteClassifier()
     naive_model.fit(X_train, y_train)
     
@@ -52,9 +55,8 @@ def run_baseline_step(data_dir, results_dir):
     import joblib
     naive_path = os.path.join(results_dir, "naive_baseline.joblib")
     joblib.dump(naive_model, naive_path)
-    print(f"Saved Naive Baseline model to {naive_path}")
     
-    print("Evaluating Naive Baseline...")
+    logger.info("Evaluating Naive Baseline...")
     y_pred_probs_naive = naive_model.predict_proba(X_test)[:, 1]
     
     metrics_naive_df = evaluate_bias(
@@ -72,5 +74,5 @@ def run_baseline_step(data_dir, results_dir):
     preds_naive_out_path = os.path.join(results_dir, "preds_Naive.csv")
     preds_naive_df.to_csv(preds_naive_out_path, index=False)
 
-    print(f"Saved ML Baseline metrics to {ml_out_path} and predictions to {preds_ml_out_path}")
-    print(f"Saved Naive Baseline metrics to {naive_out_path} and predictions to {preds_naive_out_path}")
+    logger.info(f"Saved ML Baseline metrics to {ml_out_path} and predictions to {preds_ml_out_path}")
+    logger.info(f"Saved Naive Baseline metrics to {naive_out_path} and predictions to {preds_naive_out_path}")

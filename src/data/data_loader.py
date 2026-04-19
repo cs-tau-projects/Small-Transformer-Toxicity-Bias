@@ -4,12 +4,14 @@ dataset from Hugging Face.
 """
 
 import getpass
+import logging
 import os
-import sys
 
 from datasets import load_dataset
 
 from src.data.data_utils import get_hf_token
+
+logger = logging.getLogger("pipeline")
 
 
 def get_jigsaw_dataset(split="train", cache_dir=None):
@@ -30,7 +32,7 @@ def get_jigsaw_dataset(split="train", cache_dir=None):
         else:
             cache_dir = "./.hf_cache"
 
-    print(f"Using cache directory: {cache_dir}")
+    logger.info(f"Using cache directory: {cache_dir}")
 
     try:
         # Load the raw csv.gz from a community mirror to bypass Kaggle manual download
@@ -46,11 +48,11 @@ def get_jigsaw_dataset(split="train", cache_dir=None):
         # Access the dataset split
         split_data = dataset[split]
 
-        print(f"Successfully loaded dataset split '{split}'. Total examples: {len(split_data)}")
+        logger.info(f"Successfully loaded dataset split '{split}'. Total examples: {len(split_data)}")
         return split_data
 
     except Exception as e:
-        print(f"Error loading dataset: {e}", file=sys.stderr)
+        logger.error(f"Error loading dataset: {e}", exc_info=True)
         raise e
 
 

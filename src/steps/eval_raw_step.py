@@ -1,3 +1,4 @@
+import logging
 import os
 import pandas as pd
 from tqdm import tqdm
@@ -5,11 +6,13 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from src.data.data_utils import get_hf_token
 from src.steps.utils import eval_transformer, load_saved_data
 
+logger = logging.getLogger("pipeline")
+
 def run_eval_raw_step(data_dir, results_dir, cache_dir, models, device):
     _, test_ds, identity_columns = load_saved_data(data_dir)
 
     for base_model_name in tqdm(models, desc="Evaluating raw models"):
-        print(f"\nLoading Raw Pre-trained Transformer ({base_model_name})...")
+        logger.info(f"Loading Raw Pre-trained Transformer ({base_model_name})...")
         try:
             tokenizer = AutoTokenizer.from_pretrained(base_model_name, cache_dir=cache_dir, token=get_hf_token())
             if tokenizer.pad_token is None:
@@ -29,6 +32,6 @@ def run_eval_raw_step(data_dir, results_dir, cache_dir, models, device):
             preds_out_path = os.path.join(results_dir, f"preds_{safe_name}_raw.csv")
             preds_df.to_csv(preds_out_path, index=False)
             
-            print(f"Saved metrics to {out_path} and predictions to {preds_out_path}")
+            logger.info(f"Saved metrics to {out_path} and predictions to {preds_out_path}")
         except Exception as e:
-            print(f"Error evaluating raw model {base_model_name}: {e}")
+            logger.error(f"Error evaluating raw model {base_model_name}: {e}", exc_info=True)

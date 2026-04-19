@@ -1,11 +1,14 @@
+import logging
 import os
 import subprocess
 import sys
 from tqdm import tqdm
 
+logger = logging.getLogger("pipeline")
+
 def run_finetune_step(models, output_dir, cache_dir=None, seed=42, train_samples=-1, data_dir=None):
     for base_model_name in tqdm(models, desc="Fine-tuning models"):
-        print(f"\nTriggering fine-tuning for {base_model_name}...")
+        logger.info(f"Triggering fine-tuning for {base_model_name}...")
         safe_name = base_model_name.replace("/", "_")
         model_output_base_dir = os.path.join(output_dir, f"finetuned_{safe_name}")
         finetuned_model_dir = os.path.join(model_output_base_dir, "small-transformer-toxicity")
@@ -37,6 +40,7 @@ def run_finetune_step(models, output_dir, cache_dir=None, seed=42, train_samples
             # Force Hugging Face Trainer to show its internal step progress bar
             env = os.environ.copy()
             env["TQDM_FORCE"] = "1"
-            subprocess.run(cmd, check=True, env=env)
+            result = subprocess.run(cmd, check=True, env=env)
+            logger.info(f"Fine-tuning subprocess for {base_model_name} finished with return code {result.returncode}")
         else:
-            print(f"Fine-tuned model checkpoint found in {finetuned_model_dir}. Skipping training.")
+            logger.info(f"Fine-tuned model checkpoint found in {finetuned_model_dir}. Skipping training.")

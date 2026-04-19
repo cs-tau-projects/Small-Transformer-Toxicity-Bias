@@ -1,3 +1,4 @@
+import logging
 import os
 import pandas as pd
 from src.steps.utils import load_saved_data, setup_logging
@@ -5,6 +6,7 @@ from datetime import datetime
 from rich.console import Console
 from rich.table import Table
 
+logger = logging.getLogger("pipeline")
 console = Console()
 
 # Define the headers for the new structured log file
@@ -81,10 +83,12 @@ def log_results_to_csv(results_dir, all_results_dict, experiment_name="default_e
     if not os.path.exists(log_path):
         # File doesn't exist, write with header
         new_df.to_csv(log_path, index=False, header=True)
+        logger.info(f"Created new structured log at {log_path}")
         console.print(f"[green]Created new structured log at {log_path}[/green]")
     else:
         # File exists, append without header
         new_df.to_csv(log_path, mode='a', index=False, header=False)
+        logger.info(f"Appended {len(new_rows)} rows to structured log at {log_path}")
         console.print(f"[green]Appended {len(new_rows)} rows to structured log at {log_path}[/green]")
 
 def display_rich_table(df, title):
@@ -185,6 +189,7 @@ def format_final_report(all_results_dict):
     return final_df
 
 def run_report_step(data_dir, results_dir, cache_dir, llama_model, models, eval_samples, seed=42):
+    logger.info(f"Generating Report from {results_dir}...")
     console.print(f"\n[bold]Generating Report from {results_dir}...[/bold]")
     all_results_dict = {}
     
@@ -221,6 +226,7 @@ def run_report_step(data_dir, results_dir, cache_dir, llama_model, models, eval_
     if final_df is not None:
         out_path = os.path.join(results_dir, "final_report.csv")
         final_df.to_csv(out_path, index=False)
+        logger.info(f"Saved final report to {out_path}")
         console.print(f"[green]Saved final report to {out_path}[/green]")
         
         # Log to the master CSV
@@ -287,7 +293,9 @@ def run_report_step(data_dir, results_dir, cache_dir, llama_model, models, eval_
         final_preds = pd.concat([jigsaw_df, toxigen_df], ignore_index=True)
         out_path = os.path.join(results_dir, "final_predictions.csv")
         final_preds.to_csv(out_path, index=False)
+        logger.info(f"Saved compiled predictions to {out_path}")
         console.print(f"[green]Saved compiled predictions to {out_path}[/green]")
         
     except Exception as e:
+        logger.error(f"Error compiling final predictions csv: {e}", exc_info=True)
         console.print(f"[red]Error compiling final predictions csv: {e}[/red]")

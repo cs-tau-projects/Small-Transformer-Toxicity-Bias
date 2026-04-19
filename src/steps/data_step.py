@@ -1,7 +1,10 @@
 import json
+import logging
 import os
 
 from src.data.dataset import download_and_prep_jigsaw
+
+logger = logging.getLogger("pipeline")
 
 def run_data_step(cache_dir, data_dir, train_samples=20000, eval_samples=5000, seed=42):
     # Check if all expected files already exist to skip redundant processing
@@ -15,10 +18,10 @@ def run_data_step(cache_dir, data_dir, train_samples=20000, eval_samples=5000, s
     ]
     
     if all(os.path.exists(p) for p in expected_paths):
-        print(f"Data splits already available in {data_dir}. Skipping loading and splitting.")
+        logger.info(f"Data splits already available in {data_dir}. Skipping loading and splitting.")
         return
 
-    print("\nLoading and Splitting Dataset...")
+    logger.info("Loading and Splitting Dataset...")
     train_ds, train_id_cols = download_and_prep_jigsaw("train", cache_dir=cache_dir)
     test_ds, test_id_cols = download_and_prep_jigsaw("test", cache_dir=cache_dir)
     
@@ -40,7 +43,7 @@ def run_data_step(cache_dir, data_dir, train_samples=20000, eval_samples=5000, s
         test_ds = test_ds.select(range(min(eval_samples, len(test_ds))))
 
     # Save to disk
-    print(f"Saving splits to {data_dir}...")
+    logger.info(f"Saving splits to {data_dir}...")
     train_ds.save_to_disk(os.path.join(data_dir, "train"))
     val_ds.save_to_disk(os.path.join(data_dir, "val"))
     test_ds.save_to_disk(os.path.join(data_dir, "test"))
@@ -56,3 +59,5 @@ def run_data_step(cache_dir, data_dir, train_samples=20000, eval_samples=5000, s
     
     with open(os.path.join(data_dir, "identity_columns.json"), "w") as f:
         json.dump(identity_columns, f)
+
+    logger.info(f"Data step complete — train: {len(train_ds)}, val: {len(val_ds)}, test: {len(test_ds)}, identities: {len(identity_columns)}")

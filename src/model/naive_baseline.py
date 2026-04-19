@@ -1,4 +1,7 @@
+import logging
 import numpy as np
+
+logger = logging.getLogger("pipeline")
 
 class MajorityVoteClassifier:
     """
@@ -19,7 +22,7 @@ class MajorityVoteClassifier:
         # For simplicity in prediction_probs, if the majority class is 1, 
         # we predict 1.0 probability for toxic. If it's 0, we predict 0.0.
         self.majority_prob = float(self.majority_class)
-        print(f"Naive Baseline: Majority class is {self.majority_class}")
+        logger.info(f"Naive Baseline: Majority class is {self.majority_class}")
 
     def predict_proba(self, X):
         """

@@ -1,4 +1,5 @@
 import argparse
+import logging
 import os
 
 import numpy as np
@@ -8,6 +9,8 @@ from transformers import AutoModelForSequenceClassification, Trainer, TrainingAr
 from src.data.data_utils import get_hf_token
 from src.data.dataset import JigsawDataset, download_and_prep_jigsaw, tokenize_jigsaw_dataset
 from src.evaluator import evaluate_models_metrics
+
+logger = logging.getLogger("pipeline")
 
 
 def parse_args():
@@ -58,10 +61,7 @@ def compute_metrics(eval_pred, identity_columns, eval_dataset):
         threshold=0.5,
     )
 
-    print("\n" + "=" * 50)
-    print("Evaluation Metrics:")
-    print(res_df.to_string(index=False))
-    print("=" * 50 + "\n")
+    logger.info("Evaluation Metrics:\n%s", res_df.to_string(index=False))
 
     # We must return a dictionary of metrics for the Trainer
     # We use Overall AUC as the primary metric for saving the best model
@@ -87,6 +87,13 @@ def compute_metrics(eval_pred, identity_columns, eval_dataset):
 def main():
     args = parse_args()
 
+    # Setup logging for this subprocess
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
     # 1. Reproducibility
     set_seed(args.seed)
     if torch.cuda.is_available():
@@ -101,8 +108,8 @@ def main():
     os.makedirs(cache_dir, exist_ok=True)
     os.makedirs(output_dir, exist_ok=True)
 
-    print(f"Using cache_dir: {cache_dir}")
-    print(f"Using output_dir: {output_dir}")
+    logger.info(f"Using cache_dir: {cache_dir}")
+    logger.info(f"Using output_dir: {output_dir}")
 
     # 2. Load and Prepare Data
     if args.data_dir and os.path.isdir(args.data_dir):
@@ -110,7 +117,7 @@ def main():
         # This guarantees training and evaluation see the exact same val split.
         from datasets import load_from_disk
         import json
-        print(f"Loading pre-saved data splits from {args.data_dir}...")
+        logger.info(f"Loading pre-saved data splits from {args.data_dir}...")
         
         train_path = os.path.join(args.data_dir, "train")
         val_path = os.path.join(args.data_dir, "val")
@@ -151,6 +158,8 @@ def main():
         # Note: In standalone mode, the 'test' split (range(val_idx, n)) 
         # is ignored as training only needs train/val.
 
+    logger.info(f"Train samples: {len(train_split)}, Val samples: {len(val_split)}")
+
     # Tokenize
     train_tokenized = tokenize_jigsaw_dataset(train_split, args.model_name, cache_dir=cache_dir)
     val_tokenized = tokenize_jigsaw_dataset(val_split, args.model_name, cache_dir=cache_dir)
@@ -160,7 +169,7 @@ def main():
     val_dataset = JigsawDataset(val_tokenized, identity_columns)
 
     # 3. Load Model
-    print(f"Loading Model: {args.model_name}")
+    logger.info(f"Loading Model: {args.model_name}")
     model = AutoModelForSequenceClassification.from_pretrained(
         args.model_name, num_labels=2, cache_dir=cache_dir, token=hf_token
     )
@@ -198,20 +207,25 @@ def main():
         compute_metrics=compute_metrics_wrapper,
     )
 
+    # Remove PrinterCallback to stop Trainer from printing `{...}` log dicts
+    # which breaks the tqdm progress bar into multiple lines.
+    from transformers.trainer_callback import PrinterCallback
+    trainer.remove_callback(PrinterCallback)
+
     # 6. Train!
-    print("Starting training...")
+    logger.info("Starting training...")
     trainer.train()
 
-    print("Training complete. Best model loaded from checkpont.")
+    logger.info("Training complete. Best model loaded from checkpoint.")
 
     # 7. Final Evaluation
-    print("Running final evaluation on validation set...")
+    logger.info("Running final evaluation on validation set...")
     final_metrics = trainer.evaluate()
-    print("Final Metrics:", final_metrics)
+    logger.info(f"Final Metrics: {final_metrics}")
 
     # 8. Save best model to root output dir
     trainer.save_model(output_dir)
-    print(f"Saved best model to {output_dir}")
+    logger.info(f"Saved best model to {output_dir}")
 
 
 if __name__ == "__main__":

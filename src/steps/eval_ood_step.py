@@ -1,3 +1,4 @@
+import logging
 import os
 import joblib
 import numpy as np
@@ -9,15 +10,14 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from src.data.data_utils import get_hf_token
 from src.evaluator import evaluate_bias
 
+logger = logging.getLogger("pipeline")
+
 def eval_transformer_ood(model_name, model, tokenizer, df, device):
-    """
-    Evaluates a transformer model on an Out-Of-Domain dataset (ToxiGen).
-    """
-    print(f"Tokenizing OOD data for {model_name}...")
+    """Evaluates a transformer model on an Out-Of-Domain dataset (ToxiGen)."""
+    logger.info(f"Tokenizing OOD data for {model_name}...")
     texts = df["text"].tolist()
     labels = df["label"].tolist()
 
-    # We evaluate in batches to avoid OOM
     batch_size = 32
     all_preds = []
 
@@ -32,20 +32,15 @@ def eval_transformer_ood(model_name, model, tokenizer, df, device):
             logits = outputs.logits
             probs = torch.nn.functional.softmax(logits, dim=-1)
 
-            # Assuming label 1 is toxic, label 0 is non-toxic (matches Jigsaw)
             batch_preds = probs[:, 1].cpu().numpy()
             all_preds.extend(batch_preds)
 
-    # We no longer calculate AUC here; we just return probabilities
     df["toxicity_score"] = all_preds
     df["model"] = model_name
     return df
 
 def extract_toxigen_identities_and_evaluate(model_name, df_with_preds):
-    """
-    Helper function to abstract the complex ToxiGen subgroup extraction
-    and compute bias metrics.
-    """
+    """Helper to extract ToxiGen subgroups and compute bias metrics."""
     possible_group_cols = ["target_groups", "target_group", "group"]
     found_group_col = next((c for c in possible_group_cols if c in df_with_preds.columns), None)
 
@@ -78,7 +73,7 @@ def extract_toxigen_identities_and_evaluate(model_name, df_with_preds):
                     identity_matrix_data[g][i] = 1.0
 
     if not identity_cols:
-        print(f"Warning: Could not parse identity groups from column '{found_group_col}'. Only overall metrics will be calculated.")
+        logger.warning(f"Could not parse identity groups from column '{found_group_col}'. Only overall metrics will be calculated.")
         identity_cols = ["placeholder"]
         identity_matrix = np.zeros((len(df_with_preds), 1))
     else:
@@ -96,20 +91,20 @@ def extract_toxigen_identities_and_evaluate(model_name, df_with_preds):
 
 def load_toxigen_dataset(cache_dir, eval_samples=-1, seed=42):
     """Loads and standardizes labels for the ToxiGen dataset."""
-    print("Loading ToxiGen dataset from Hugging Face...")
+    logger.info("Loading ToxiGen dataset from Hugging Face...")
     try:
         toxigen = load_dataset(
             "skg/toxigen-data", name="train", cache_dir=cache_dir, split="test", token=get_hf_token()
         )
     except Exception as e:
-        print(f"Could not load skg/toxigen-data: {e}")
-        print("Attempting to load standard 'toxigen/toxigen-data'...")
+        logger.warning(f"Could not load skg/toxigen-data: {e}")
+        logger.info("Attempting to load standard 'toxigen/toxigen-data'...")
         try:
             toxigen = load_dataset(
                 "toxigen/toxigen-data", name="annotated", cache_dir=cache_dir, split="test", token=get_hf_token()
             )
         except Exception as e2:
-            print(f"Could not load toxigen/toxigen-data: {e2}")
+            logger.error(f"Could not load toxigen/toxigen-data: {e2}", exc_info=True)
             raise e2
 
     df = toxigen.to_pandas()
@@ -128,7 +123,7 @@ def load_toxigen_dataset(cache_dir, eval_samples=-1, seed=42):
     elif 'roberta_prediction' in df.columns:
          df['label'] = df['roberta_prediction'].apply(lambda x: 1 if float(x) >= 0.5 else 0)
     else:
-        print(f"Warning: Could not identify label column. Available columns: {df.columns}")
+        logger.warning(f"Could not identify label column. Available columns: {list(df.columns)}")
         try:
             df["label"] = df["label"]
         except KeyError:
@@ -144,7 +139,7 @@ def load_toxigen_dataset(cache_dir, eval_samples=-1, seed=42):
     elif 'text' not in df.columns and 'comment_text' in df.columns:
          df['text'] = df['comment_text']
             
-    print(f"Loaded {len(df)} samples from ToxiGen for OOD evaluation.")
+    logger.info(f"Loaded {len(df)} samples from ToxiGen for OOD evaluation.")
     return df
 
 def eval_baseline_ood(results_dir, df):
@@ -159,16 +154,15 @@ def eval_baseline_ood(results_dir, df):
     for model_name, filename, preds_filename in baselines:
         baseline_path = os.path.join(results_dir, filename)
         if not os.path.exists(baseline_path):
-            print(f"Skipping {model_name}: could not find {baseline_path}")
+            logger.warning(f"Skipping {model_name}: could not find {baseline_path}")
             continue
 
-        print(f"\nEvaluating {model_name} on OOD data...")
+        logger.info(f"Evaluating {model_name} on OOD data...")
         try:
             model = joblib.load(baseline_path)
             inference_text = df["text"]
             
             X_val = [str(t) if t is not None else "" for t in inference_text]
-            # Both LogisticRegression and MajorityVoteClassifier support predict_proba
             y_pred_probs = model.predict_proba(X_val)[:, 1]
 
             df_with_preds = df.copy()
@@ -181,15 +175,15 @@ def eval_baseline_ood(results_dir, df):
             preds_df = df_with_preds[['text', 'toxicity_score']]
             preds_out_path = os.path.join(results_dir, preds_filename)
             preds_df.to_csv(preds_out_path, index=False)
-            print(f"Saved {model_name} OOD predictions to {preds_out_path}")
+            logger.info(f"Saved {model_name} OOD predictions to {preds_out_path}")
             
         except Exception as e:
-            print(f"Error evaluating {model_name} on OOD data: {e}")
+            logger.error(f"Error evaluating {model_name} on OOD data: {e}", exc_info=True)
             
     return baseline_metrics_list if baseline_metrics_list else None
 
 def run_eval_ood_step(results_dir, cache_dir, output_dir, models, device, eval_samples=-1, seed=42):
-    print("\n--- Running OOD Evaluation (ToxiGen) ---")
+    logger.info("Running OOD Evaluation (ToxiGen)...")
     df = load_toxigen_dataset(cache_dir, eval_samples, seed=seed)
     
     all_metrics = []
@@ -203,7 +197,7 @@ def run_eval_ood_step(results_dir, cache_dir, output_dir, models, device, eval_s
     # Save the standardized ToxiGen dataset for reuse (e.g., LLaMA step)
     toxigen_save_path = os.path.join(output_dir, "data", "toxigen_standardized.parquet")
     df.to_parquet(toxigen_save_path, index=False)
-    print(f"Saved standardized ToxiGen dataset for LLaMA reuse to {toxigen_save_path}")
+    logger.info(f"Saved standardized ToxiGen dataset for LLaMA reuse to {toxigen_save_path}")
 
     # 2. Evaluate Transformer Models
     for base_model_name in tqdm(models, desc="OOD eval models"):
@@ -211,7 +205,7 @@ def run_eval_ood_step(results_dir, cache_dir, output_dir, models, device, eval_s
         model_output_base_dir = os.path.join(output_dir, f"finetuned_{safe_name}")
         finetuned_model_dir = os.path.join(model_output_base_dir, "small-transformer-toxicity")
 
-        print(f"\n\nEvaluating Fine-Tuned Transformer ({base_model_name}) on OOD data...")
+        logger.info(f"Evaluating Fine-Tuned Transformer ({base_model_name}) on OOD data...")
         model_load_path = finetuned_model_dir
         if os.path.exists(finetuned_model_dir):
             if not os.path.exists(os.path.join(finetuned_model_dir, "config.json")):
@@ -237,16 +231,15 @@ def run_eval_ood_step(results_dir, cache_dir, output_dir, models, device, eval_s
                 preds_df = df_with_preds[['text', 'toxicity_score']]
                 preds_out_path = os.path.join(results_dir, f"preds_{safe_name}_finetuned_ood.csv")
                 preds_df.to_csv(preds_out_path, index=False)
-                print(f"Saved Finetuned {base_model_name} OOD predictions to {preds_out_path}")
+                logger.info(f"Saved Finetuned {base_model_name} OOD predictions to {preds_out_path}")
                 
             except Exception as e:
-                print(f"Error evaluating fine-tuned model {base_model_name} on OOD data: {e}")
+                logger.error(f"Error evaluating fine-tuned model {base_model_name} on OOD data: {e}", exc_info=True)
         else:
-            print(f"Could not find fine-tuned directory: {finetuned_model_dir}. Please run 'make finetune' first.")
+            logger.warning(f"Could not find fine-tuned directory: {finetuned_model_dir}. Please run 'make finetune' first.")
 
     if summary_results:
         summary_df = pd.concat(summary_results, ignore_index=True)
         out_path = os.path.join(results_dir, "ood_toxigen_metrics.csv")
         summary_df.to_csv(out_path, index=False)
-        print(f"\nSaved detailed OOD metrics to {out_path}")
-        print(summary_df.head(10).to_string(index=False))
+        logger.info(f"Saved detailed OOD metrics to {out_path}")

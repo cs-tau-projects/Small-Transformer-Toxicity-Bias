@@ -1,3 +1,4 @@
+import logging
 import os
 import json
 import pandas as pd
@@ -6,17 +7,20 @@ from datasets import load_from_disk
 from rich.console import Console
 from rich.table import Table
 
+logger = logging.getLogger("pipeline")
 console = Console()
 
 def run_analysis_step(data_dir, results_dir, model_name_for_errors=None):
     """
     Performs dataset statistics and error analysis.
     """
+    logger.info("Running Dataset Analysis & Error Sampling...")
     console.print("\n[bold cyan]--- Running Dataset Analysis & Error Sampling ---[/bold cyan]")
     
     # 1. Load Data
     test_path = os.path.join(data_dir, "test")
     if not os.path.exists(test_path):
+        logger.error(f"Test dataset not found at {test_path}")
         console.print(f"[red]Error: Test dataset not found at {test_path}[/red]")
         return
     
@@ -72,6 +76,7 @@ def run_analysis_step(data_dir, results_dir, model_name_for_errors=None):
     for _, row in stats_df.iterrows():
         table.add_row(*[str(val) for val in row])
     console.print(table)
+    logger.info(f"Saved statistics to {stats_path}")
     console.print(f"[green]Saved statistics to {stats_path}[/green]")
     
     # 3. Error Analysis
@@ -127,6 +132,7 @@ def run_analysis_step(data_dir, results_dir, model_name_for_errors=None):
     for i, row in fns.head(5).iterrows():
         console.print(f"  - [blue]Pred {row['pred_score']:.4f}:[/blue] {row['comment_text'][:200]}...")
         
+    logger.info(f"Saved error analysis to {errors_path}")
     console.print(f"\n[green]Saved error analysis to {errors_path}[/green]")
 
 if __name__ == "__main__":

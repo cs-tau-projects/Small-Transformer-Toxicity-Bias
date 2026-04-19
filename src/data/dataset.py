@@ -1,7 +1,11 @@
+import logging
+
 import numpy as np
 import torch
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer
+
+logger = logging.getLogger("pipeline")
 
 ALL_IDENTITY_COLUMNS = [
     "asian",
@@ -38,12 +42,12 @@ def download_and_prep_jigsaw(split="train", threshold=0.5, cache_dir=None):
     """
     from .data_loader import get_jigsaw_dataset
 
-    print(f"Loading split '{split}' of Jigsaw Unintended Bias dataset...")
+    logger.info(f"Loading split '{split}' of Jigsaw Unintended Bias dataset...")
     try:
         # Load from HuggingFace via custom loader
         ds = get_jigsaw_dataset(split, cache_dir=cache_dir)
     except Exception as e:
-        print(f"Failed to load dataset. Error: {e}")
+        logger.error(f"Failed to load dataset: {e}", exc_info=True)
         raise e
 
     # Discover dynamically which identity columns were kept
@@ -67,7 +71,7 @@ def download_and_prep_jigsaw(split="train", threshold=0.5, cache_dir=None):
 
         return result
 
-    print("Processing targets and identities (memory-mapped)...")
+    logger.info("Processing targets and identities (memory-mapped)...")
     ds = ds.map(process_batch, batched=True, desc="Processing targets and identities")
 
     # Subselect columns to save memory
@@ -97,7 +101,7 @@ def tokenize_jigsaw_dataset(dataset, tokenizer_name: str, max_length: int = 128,
             max_length=max_length,
         )
 
-    print(f"Tokenizing dataset using {tokenizer_name} (memory-mapped)...")
+    logger.info(f"Tokenizing dataset using {tokenizer_name} (memory-mapped)...")
     tokenized_dataset = dataset.map(tokenize_function, batched=True, desc="Tokenizing dataset")
 
     return tokenized_dataset

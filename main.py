@@ -57,51 +57,58 @@ def main():
             logger.warning(" [bold red]CUDA is NOT available.[/bold red] PyTorch cannot see your GPU.", extra={"markup": True})
             logger.info(f"Using device: [bold yellow]{device}[/bold yellow]", extra={"markup": True})
     
+    is_full = (args.train_samples == -1 and args.eval_samples == -1)
+    full_msg = " [bold red](FULL DATASET)[/bold red]" if is_full else ""
+
+    if is_full:
+        logger.info("*" * 60)
+        logger.info("[bold red]*** PIPELINE CONFIGURED FOR FULL DATASET ***[/bold red]", extra={"markup": True})
+        logger.info("*" * 60)
     if args.step in ["data", "all"]:
         from src.steps.data_step import run_data_step
-        logger.info("Running [bold cyan]Data Strategy[/bold cyan] step", extra={"markup": True})
+        logger.info(f"Running [bold cyan]Data Strategy[/bold cyan] step{full_msg}", extra={"markup": True})
         run_data_step(cache_dir, data_dir, args.train_samples, args.eval_samples, seed=args.seed)
 
     if args.step in ["baseline", "all"]:
         from src.steps.baseline_step import run_baseline_step
-        logger.info("Running [bold cyan]Baseline[/bold cyan] step", extra={"markup": True})
+        logger.info(f"Running [bold cyan]Baseline[/bold cyan] step{full_msg}", extra={"markup": True})
         run_baseline_step(data_dir, results_dir)
 
     if args.step == "eval-raw":
         from src.steps.eval_raw_step import run_eval_raw_step
-        logger.info("Running [bold cyan]Raw Evaluation[/bold cyan] step", extra={"markup": True})
+        logger.info(f"Running [bold cyan]Raw Evaluation[/bold cyan] step{full_msg}", extra={"markup": True})
         run_eval_raw_step(data_dir, results_dir, cache_dir, args.models, device)
 
     if args.step in ["finetune", "all"]:
         from src.steps.finetune_step import run_finetune_step
-        logger.info("Running [bold cyan]Fine-tuning[/bold cyan] step", extra={"markup": True})
+        logger.info(f"Running [bold cyan]Fine-tuning[/bold cyan] step{full_msg}", extra={"markup": True})
         run_finetune_step(args.models, args.output_dir, cache_dir=cache_dir, seed=args.seed, train_samples=args.train_samples, data_dir=data_dir)
 
     if args.step in ["eval-finetuned", "all"]:
         from src.steps.eval_ft_step import run_eval_ft_step
-        logger.info("Running [bold cyan]Fine-tuned Evaluation[/bold cyan] step", extra={"markup": True})
+        logger.info(f"Running [bold cyan]Fine-tuned Evaluation[/bold cyan] step{full_msg}", extra={"markup": True})
         run_eval_ft_step(data_dir, results_dir, cache_dir, args.output_dir, args.models, device)
 
     if args.step in ["eval-ood", "all"]:
         from src.steps.eval_ood_step import run_eval_ood_step
-        logger.info("Running [bold cyan]OOD Evaluation[/bold cyan] step", extra={"markup": True})
+        logger.info(f"Running [bold cyan]OOD Evaluation[/bold cyan] step{full_msg}", extra={"markup": True})
         run_eval_ood_step(results_dir, cache_dir, args.output_dir, args.models, device, args.eval_samples, seed=args.seed)
 
     if args.step in ["llama", "all"]:
         from src.steps.llama_step import run_llama_step
-        logger.info("Running [bold cyan]LLaMA Evaluation[/bold cyan] step", extra={"markup": True})
+        logger.info(f"Running [bold cyan]LLaMA Evaluation[/bold cyan] step{full_msg}", extra={"markup": True})
         run_llama_step(data_dir, results_dir, cache_dir, args.llama_model, device)
 
     if args.step in ["analysis", "all"]:
         from src.analysis import run_analysis_step
-        logger.info("Running [bold cyan]Dataset & Error Analysis[/bold cyan] step", extra={"markup": True})
+        logger.info(f"Running [bold cyan]Dataset & Error Analysis[/bold cyan] step{full_msg}", extra={"markup": True})
         # Default to the first model in the list for error analysis if none specific is provided
         primary_model = args.models[0] if args.models else None
         run_analysis_step(data_dir, results_dir, model_name_for_errors=primary_model)
 
     if args.step in ["report", "all"]:
         from src.steps.report_step import run_report_step
-        logger.info("Generating [bold cyan]Final Report[/bold cyan]", extra={"markup": True})
+        logger.info(f"Generating [bold cyan]Final Report[/bold cyan]{full_msg}", extra={"markup": True})
         run_report_step(data_dir, results_dir, cache_dir, args.llama_model, args.models, args.eval_samples, seed=args.seed)
 
 if __name__ == "__main__":

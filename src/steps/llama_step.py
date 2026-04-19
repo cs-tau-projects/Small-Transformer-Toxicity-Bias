@@ -1,3 +1,4 @@
+import logging
 import os
 import numpy as np
 import torch
@@ -7,6 +8,8 @@ from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from src.evaluator import evaluate_bias
 from src.steps.utils import load_saved_data
+
+logger = logging.getLogger("pipeline")
 
 def get_llama_toxicity_scores(model, tokenizer, texts, device, batch_size=8, total=None, save_every=None, save_path=None):
     """
@@ -48,24 +51,23 @@ def get_llama_toxicity_scores(model, tokenizer, texts, device, batch_size=8, tot
             if save_every and save_path and (i + 1) % (save_every // batch_size) == 0:
                 temp_df = pd.DataFrame({"toxicity_score": all_scores})
                 temp_df.to_csv(save_path + ".partial", index=False)
-                # We don't print every time to avoid log spam, just a silent save
 
     return np.array(all_scores)
 
 def run_llama_step(data_dir, results_dir, cache_dir, llama_model, device):
     _, test_ds, identity_columns = load_saved_data(data_dir)
 
-    print(f"\nZero-shot toxicity scoring with {llama_model}...")
+    logger.info(f"Zero-shot toxicity scoring with {llama_model}...")
     safe_name = llama_model.replace("/", "_")
 
     # Pre-check authentication for gated models
     api = HfApi()
     try:
         user_info = api.whoami()
-        print(f"Authenticated as: {user_info['name']}")
+        logger.info(f"Authenticated as: {user_info['name']}")
     except Exception:
-        print("[WARNING] Not authenticated with Hugging Face. Gated models like LLaMA may fail to load.")
-        print("Suggestion: Run 'make hf-login' (which runs 'hf auth login') to authenticate.")
+        logger.warning("Not authenticated with Hugging Face. Gated models like LLaMA may fail to load.")
+        logger.warning("Suggestion: Run 'make hf-login' (which runs 'hf auth login') to authenticate.")
 
     try:
         tokenizer = AutoTokenizer.from_pretrained(llama_model, cache_dir=cache_dir)
@@ -80,7 +82,7 @@ def run_llama_step(data_dir, results_dir, cache_dir, llama_model, device):
         )
 
         # 1. In-Distribution (ID) Evaluation on Jigsaw
-        print("\n--- Evaluating LLaMA on Jigsaw (ID) ---")
+        logger.info("Evaluating LLaMA on Jigsaw (ID)...")
         preds_id_out_path = os.path.join(results_dir, f"preds_{safe_name}_llama.csv")
         y_pred_probs_id = get_llama_toxicity_scores(
             model, tokenizer, test_ds["comment_text"], device, total=len(test_ds),
@@ -106,12 +108,12 @@ def run_llama_step(data_dir, results_dir, cache_dir, llama_model, device):
         # Cleanup partial file if it exists
         if os.path.exists(preds_id_out_path + ".partial"):
             os.remove(preds_id_out_path + ".partial")
-        print(f"Saved LLaMA ID results to {metrics_id_out_path} and predictions to {preds_id_out_path}")
+        logger.info(f"Saved LLaMA ID results to {metrics_id_out_path} and predictions to {preds_id_out_path}")
 
         # 2. Out-of-Distribution (OOD) Evaluation on ToxiGen
         toxigen_path = os.path.join(data_dir, "toxigen_standardized.parquet")
         if os.path.exists(toxigen_path):
-            print("\n--- Evaluating LLaMA on ToxiGen (OOD) ---")
+            logger.info("Evaluating LLaMA on ToxiGen (OOD)...")
             df_ood = pd.read_parquet(toxigen_path)
             
             preds_ood_out_path = os.path.join(results_dir, f"preds_{safe_name}_llama_ood.csv")
@@ -142,20 +144,16 @@ def run_llama_step(data_dir, results_dir, cache_dir, llama_model, device):
             # Cleanup partial file
             if os.path.exists(preds_ood_out_path + ".partial"):
                 os.remove(preds_ood_out_path + ".partial")
-            print(f"Appended LLaMA OOD results to {metrics_ood_out_path} and saved predictions to {preds_ood_out_path}")
+            logger.info(f"Appended LLaMA OOD results to {metrics_ood_out_path} and saved predictions to {preds_ood_out_path}")
         else:
-            print(f"\n[WARNING] Standardized ToxiGen dataset not found at {toxigen_path}. Skipping LLaMA OOD evaluation.")
-            print("Hint: Run 'make eval-ood' first to generate the standardized ToxiGen file.")
+            logger.warning(f"Standardized ToxiGen dataset not found at {toxigen_path}. Skipping LLaMA OOD evaluation.")
+            logger.warning("Hint: Run 'make eval-ood' first to generate the standardized ToxiGen file.")
 
     except Exception as e:
-        import traceback
-        traceback.print_exc()
         err_msg = str(e)
         if "403" in err_msg or "gated" in err_msg.lower():
-            print("\n[ERROR] Authentication failure or Access Denied to LLaMA model.")
-            print(f"Reason: {llama_model} is a gated repository.")
-            print("\nFix Steps:")
-            print(f"1. Request access at: https://huggingface.co/{llama_model}")
-            print("2. Once approved, run 'make hf-login' (or 'hf auth login') in your terminal.")
+            logger.error(f"Authentication failure or Access Denied to LLaMA model.", exc_info=True)
+            logger.error(f"{llama_model} is a gated repository. Request access at: https://huggingface.co/{llama_model}")
+            logger.error("Once approved, run 'make hf-login' (or 'hf auth login') in your terminal.")
         else:
-            print(f"Error evaluating LLaMA model: {e}")
+            logger.error(f"Error evaluating LLaMA model: {e}", exc_info=True)

@@ -10,6 +10,8 @@ from tqdm import tqdm
 
 from src.evaluator import evaluate_bias
 
+logger = logging.getLogger("pipeline")
+
 
 def setup_logging(output_dir):
     """Sets up centralized logging for the pipeline."""
@@ -35,7 +37,7 @@ def load_saved_data(data_dir):
     Helper to load datasets and identity columns.
     By default, returns (Train, Test) to downstream evaluation steps.
     """
-    print(f"Loading cached datasets from {data_dir}...")
+    logger.info(f"Loading cached datasets from {data_dir}...")
     
     # Prioritize new 80/10/10 split names
     train_path = os.path.join(data_dir, "train")
@@ -53,6 +55,7 @@ def load_saved_data(data_dir):
     with open(os.path.join(data_dir, "identity_columns.json"), "r") as f:
         identity_columns = json.load(f)
 
+    logger.info(f"Loaded train ({len(train_ds)} samples) and test ({len(test_ds)} samples), {len(identity_columns)} identity columns")
     return train_ds, test_ds, identity_columns
 
 
@@ -88,7 +91,7 @@ def get_transformer_predictions(model, tokenizer, dataset, device, batch_size=32
 
 def eval_transformer(model_desc, model, tokenizer, val_ds, identity_columns, device):
     """Evaluates a Transformer model given the validation dataset."""
-    print(f"\n--- Evaluating {model_desc} ---")
+    logger.info(f"Evaluating {model_desc}...")
     y_val = val_ds["is_toxic"]
 
     identities_val = [val_ds[col] for col in identity_columns]
