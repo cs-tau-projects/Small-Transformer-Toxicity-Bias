@@ -73,7 +73,7 @@ def get_transformer_predictions(model, tokenizer, dataset, device, batch_size=32
     with torch.no_grad():
         for i in tqdm(range(0, len(texts), batch_size), desc="Inferencing"):
             batch_texts = texts[i : i + batch_size]
-            inputs = tokenizer(batch_texts, return_tensors="pt", padding=True, truncation=True, max_length=128)
+            inputs = tokenizer(batch_texts, return_tensors="pt", padding=True, truncation=True, max_length=256)
             inputs = {k: v.to(device) for k, v in inputs.items()}
 
             outputs = model(**inputs)
