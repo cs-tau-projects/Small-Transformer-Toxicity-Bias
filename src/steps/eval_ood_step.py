@@ -94,14 +94,14 @@ def load_toxigen_dataset(cache_dir, eval_samples=-1, seed=42):
     logger.info("Loading ToxiGen dataset from Hugging Face...")
     try:
         toxigen = load_dataset(
-            "skg/toxigen-data", name="train", cache_dir=cache_dir, split="test", token=get_hf_token()
+            "skg/toxigen-data", name="train", cache_dir=cache_dir, split="train+test", token=get_hf_token()
         )
     except Exception as e:
         logger.warning(f"Could not load skg/toxigen-data: {e}")
         logger.info("Attempting to load standard 'toxigen/toxigen-data'...")
         try:
             toxigen = load_dataset(
-                "toxigen/toxigen-data", name="annotated", cache_dir=cache_dir, split="test", token=get_hf_token()
+                "toxigen/toxigen-data", name="annotated", cache_dir=cache_dir, split="train+test", token=get_hf_token()
             )
         except Exception as e2:
             logger.error(f"Could not load toxigen/toxigen-data: {e2}", exc_info=True)
