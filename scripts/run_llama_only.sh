@@ -22,7 +22,7 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     *)
-      if [ -z "$OUTPUT_SUBDIR" ]; then
+      if [ -z "$OUTPUT_SUBDIR" ] && [[ ! "$1" =~ ^- ]]; then
         OUTPUT_SUBDIR="$1"
       fi
       shift
