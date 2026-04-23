@@ -141,7 +141,7 @@ def run_llama_step(data_dir, results_dir, cache_dir, llama_model, device, batch_
 
         # Only use torch.compile on CUDA. Mac/MPS is not stable with large vocab models.
         model_to_use = model
-        if device.type == "cuda":
+        if device.type == "cuda" and torch.cuda.get_device_capability(device)[0] >= 7:
             try:
                 model_to_use = torch.compile(model)
                 logger.info("Successfully optimized model with torch.compile")
