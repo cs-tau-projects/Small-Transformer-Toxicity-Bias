@@ -1,9 +1,10 @@
 #!/bin/bash
-#SBATCH --job-name=llama-full-eval
-#SBATCH --output=logs/llama_full_%j.out
-#SBATCH --error=logs/llama_full_%j.err
+#SBATCH --job-name=llama-data-full
+#SBATCH --output=logs/llama_%j.out
+#SBATCH --error=logs/llama_%j.err
 #SBATCH --partition=studentkillable
 #SBATCH --time=24:00:00
+#SBATCH --signal=USR1@120
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
@@ -12,49 +13,88 @@
 
 set -euo pipefail
 
-# --- Argument Parsing ---
+# ── Argument Parsing ────────────────────────────────────
 OUTPUT_SUBDIR=""
 while [[ $# -gt 0 ]]; do
   case $1 in
-    --outputdir) OUTPUT_SUBDIR="$2"; shift 2 ;;
-    *) if [ -z "$OUTPUT_SUBDIR" ]; then OUTPUT_SUBDIR="$1"; fi; shift ;;
+    --outputdir)
+      OUTPUT_SUBDIR="$2"
+      shift 2
+      ;;
+    *)
+      if [ -z "$OUTPUT_SUBDIR" ]; then
+        OUTPUT_SUBDIR="$1"
+      fi
+      shift
+      ;;
   esac
 done
 
-# --- Storage Paths ---
+# ── Storage Paths ───────────────────────────────────────
 COURSE_STORAGE="/vol/joberant_nobck/data/NLP_368307701_2526a/$(whoami)"
+
 if [ -n "$OUTPUT_SUBDIR" ]; then
     OUTPUT_DIR="${COURSE_STORAGE}/outputs/${OUTPUT_SUBDIR}"
 else
     OUTPUT_DIR="${COURSE_STORAGE}/outputs"
 fi
-HF_HOME="${COURSE_STORAGE}/.hf_cache"
 
-# --- Environment Setup ---
+# ── Diagnostics ─────────────────────────────────────────
+echo "═══════════════════════════════════════════════════"
+echo "  Job ID    : $SLURM_JOB_ID"
+echo "  Node      : $SLURMD_NODENAME"
+echo "  Partition : $SLURM_JOB_PARTITION"
+echo "  GPUs      : ${SLURM_GPUS_ON_NODE:-1}"
+echo "  Time      : $(date)"
+echo "  Working   : $(pwd)"
+echo "  Storage   : $COURSE_STORAGE"
+echo "  Output    : $OUTPUT_DIR"
+echo "═══════════════════════════════════════════════════"
+nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+echo ""
+
+# ── Environment ─────────────────────────────────────────
 set +u
 source ~/.bashrc
 conda activate venv
 set -u
+echo "✓ Conda env active  ($(python --version))"
 
-module load cuda/12.4 || module load cuda/12.1 || module load cuda/11.8 || echo "Warning: No CUDA module found"
+echo "Attempting to load CUDA modules..."
+module load cuda/12.4 || module load cuda/12.1 || module load cuda/11.8 || echo "⚠ No standard CUDA module found, relying on environment."
 
 if [ -f ".env" ]; then
     export $(grep -v '^#' .env | xargs)
+    echo "✓ Loaded .env"
 fi
 
-export HF_HOME="$HF_HOME"
-mkdir -p "$HF_HOME" "$OUTPUT_DIR"
+export HF_HOME="${COURSE_STORAGE}/.hf_cache"
+mkdir -p "$HF_HOME"
+echo "✓ HF_HOME=$HF_HOME"
 
-# --- Execution ---
-echo "Starting Data and LLaMA steps on full dataset..."
+mkdir -p "$OUTPUT_DIR"
 
-# We use make run-scientific because it sets --eval_samples -1 automatically.
-# We run them sequentially to ensure data is ready before LLaMA starts.
+# ── Diagnostics (GPU/Torch) ─────────────────────────────
+echo ""
+echo "── GPU Diagnostics ──"
+echo "CUDA_VISIBLE_DEVICES : ${CUDA_VISIBLE_DEVICES:-'NOT SET'}"
+nvidia-smi --query-gpu=name,index,memory.total --format=csv,noheader
+python -c "import torch; print(f'Torch Version: {torch.__version__}'); print(f'CUDA available: {torch.cuda.is_available()}'); print(f'Device Count: {torch.cuda.device_count()}'); print(f'CUDA Version: {torch.version.cuda}')"
+echo "─────────────────────"
+echo ""
 
-echo "Running Data Preparation..."
+# ── Run Pipeline ────────────────────────────────────────
+echo "═══════════════════════════════════════════════════"
+echo "           STARTING: Data + LLaMA (Full Run)"
+echo "═══════════════════════════════════════════════════"
+
+# Step 1: Prepare Full Data
 make run-scientific ARGS="--step data --output_dir $OUTPUT_DIR $@"
 
-echo "Running LLaMA Evaluation..."
+# Step 2: Run LLaMA Evaluation
 make run-scientific ARGS="--step llama --output_dir $OUTPUT_DIR $@"
 
-echo "Completed at $(date)"
+echo ""
+echo "═══════════════════════════════════════════════════"
+echo "  ✓ LLaMA Pipeline completed at $(date)"
+echo "═══════════════════════════════════════════════════"
