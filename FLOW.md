@@ -531,5 +531,3 @@ The pipeline uses multiple layered mechanisms to ensure reproducibility:
 | `compute_fpr()` | [`src/evaluator.py`](src/evaluator.py) | 29 | False Positive Rate |
 | `run_report_step()` | [`src/steps/report_step.py`](src/steps/report_step.py) | 66 | Combine all CSVs into final comparison table |
 | `format_final_report()` | [`src/steps/report_step.py`](src/steps/report_step.py) | 4 | Print 4-section comparison report to stdout |
-| `get_model_pair()` | [`src/model/model_manager.py`](src/model/model_manager.py) | 5 | Load raw + placeholder fine-tuned model pair |
-| `train_model()` | [`src/model/model_manager.py`](src/model/model_manager.py) | 26 | Utility wrapper around HuggingFace Trainer |

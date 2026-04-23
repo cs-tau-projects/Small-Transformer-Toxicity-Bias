@@ -39,18 +39,11 @@ def load_saved_data(data_dir):
     """
     logger.info(f"Loading cached datasets from {data_dir}...")
     
-    # Prioritize new 80/10/10 split names
     train_path = os.path.join(data_dir, "train")
-    val_path = os.path.join(data_dir, "val")
     test_path = os.path.join(data_dir, "test")
     
-    if os.path.exists(train_path) and os.path.exists(test_path):
-        train_ds = load_from_disk(train_path)
-        test_ds = load_from_disk(test_path)
-    else:
-        # Fallback to 90/10 names
-        train_ds = load_from_disk(os.path.join(data_dir, "baseline_train"))
-        test_ds = load_from_disk(os.path.join(data_dir, "eval"))
+    train_ds = load_from_disk(train_path)
+    test_ds = load_from_disk(test_path)
 
     with open(os.path.join(data_dir, "identity_columns.json"), "r") as f:
         identity_columns = json.load(f)

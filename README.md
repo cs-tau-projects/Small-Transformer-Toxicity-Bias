@@ -12,9 +12,9 @@ This project investigates the effectiveness of small pre-trained transformer enc
 While Large Language Models (LLMs) are currently prominent, many deployed moderation systems still rely on smaller transformer-based classifiers due to their stability and ease of deployment. Prior research has shown that these classifiers can exhibit biased behavior toward specific groups even when the text itself is non-toxic.
 
 ## Methodology
-* **Models**: Fine-tuning small encoder-based transformer models (BERT variants).
+* **Models**: TF-IDF + Logistic Regression baseline, Naive baseline, fine-tuning small encoder-based transformer models (BERT variants), and LLaMA zero-shot evaluation.
 * **Dataset**: Google Jigsaw Unintended Bias in Toxicity Classification dataset.
-* **Evaluation**: Performance is measured using ROC-AUC, subgroup AUC, and False Negative Rates (FNR) to identify potential bias gaps.
+* **Evaluation**: Performance is measured using ROC-AUC, subgroup AUC, BPSN AUC, BNSP AUC, False Negative Rates (FNR), and False Positive Rates (FPR) to identify potential bias gaps.
 
 ## Environment Setup
 
@@ -72,22 +72,6 @@ python main.py --step llama
 python main.py --step report
 ```
 
-### Running with a Configuration File
-For better reproducibility and experiment management, you can use a YAML configuration file to define all your parameters. This is the recommended approach for running a full experiment.
-
-You can define a new experiment by creating a new file in the `configs/` directory. Then, run the entire pipeline using the `--config` flag:
-
-```bash
-# Run the full pipeline using the parameters from the baseline config
-python main.py --config configs/bert_baseline.yaml
-```
-You can still override specific parameters with command-line flags. For example, to run only the `finetune` step with the config:
-```bash
-python main.py --config configs/bert_baseline.yaml --step finetune
-```
-
-Each run will append its results to a master log file at `outputs/results/results.csv`. This file is designed for easy analysis and comparison of different experiment runs.
-
 ### Key CLI Flags
 
 | Flag | Default | Description |
@@ -116,7 +100,7 @@ If you find this research or code useful, please cite it as follows:
 ```bibtex
 @software{German_Small-Transformer-Toxicity-Bias_2026,
   author = {German, Maxim and Shufaro, Eran and Abramovich, Ilay and Hazan, Itay},
-  month = {3},
+  month = {4},
   title = {{Small-Transformer-Toxicity-Bias}},
   url = {https://github.com/cs-tau-projects/Small-Transformer-Toxicity-Bias},
   version = {1.0.0},

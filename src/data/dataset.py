@@ -7,32 +7,7 @@ from transformers import AutoTokenizer
 
 logger = logging.getLogger("pipeline")
 
-ALL_IDENTITY_COLUMNS = [
-    "asian",
-    "atheist",
-    "bisexual",
-    "black",
-    "buddhist",
-    "christian",
-    "female",
-    "heterosexual",
-    "hindu",
-    "homosexual_gay_or_lesbian",
-    "intellectual_or_learning_disability",
-    "jewish",
-    "latino",
-    "male",
-    "muslim",
-    "other_disability",
-    "other_gender",
-    "other_race_or_ethnicity",
-    "other_religion",
-    "other_sexual_orientation",
-    "physical_disability",
-    "psychiatric_or_mental_illness",
-    "transgender",
-    "white",
-]
+from src.data.data_utils import ALL_IDENTITY_COLUMNS
 
 
 def download_and_prep_jigsaw(split="train", threshold=0.5, cache_dir=None):
@@ -85,7 +60,7 @@ def download_and_prep_jigsaw(split="train", threshold=0.5, cache_dir=None):
     return ds, kept_identities
 
 
-def tokenize_jigsaw_dataset(dataset, tokenizer_name: str, max_length: int = 128, cache_dir: str = None):
+def tokenize_jigsaw_dataset(dataset, tokenizer_name: str, max_length: int = 256, cache_dir: str = None):
     """
     Tokenizes the dataset eagerly using HF's memory-mapped Arrow backend.
     """

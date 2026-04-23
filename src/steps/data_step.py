@@ -12,8 +12,6 @@ def run_data_step(cache_dir, data_dir, train_samples=20000, eval_samples=5000, s
         os.path.join(data_dir, "train"),
         os.path.join(data_dir, "val"),
         os.path.join(data_dir, "test"),
-        os.path.join(data_dir, "baseline_train"),
-        os.path.join(data_dir, "eval"),
         os.path.join(data_dir, "identity_columns.json")
     ]
     
@@ -47,12 +45,6 @@ def run_data_step(cache_dir, data_dir, train_samples=20000, eval_samples=5000, s
     train_ds.save_to_disk(os.path.join(data_dir, "train"))
     val_ds.save_to_disk(os.path.join(data_dir, "val"))
     test_ds.save_to_disk(os.path.join(data_dir, "test"))
-    
-    # Backward compatibility: save 'baseline_train' and 'eval' as symlinks or copies 
-    # to avoid breaking other steps before we update them. Actually, I'll update them now.
-    # But for a smoother transition during this turn:
-    train_ds.save_to_disk(os.path.join(data_dir, "baseline_train"))
-    test_ds.save_to_disk(os.path.join(data_dir, "eval"))
     
     # Maintain common identity columns
     identity_columns = sorted(set(train_id_cols) & set(test_id_cols))

@@ -56,7 +56,7 @@ def extract_toxigen_identities_and_evaluate(model_name, df_with_preds):
                 if group_val.startswith("[") and group_val.endswith("]"):
                     try:
                         groups = ast.literal_eval(group_val)
-                    except:
+                    except (ValueError, SyntaxError):
                         groups = [group_val]
                 else:
                     groups = [g.strip() for g in group_val.split(",")]
