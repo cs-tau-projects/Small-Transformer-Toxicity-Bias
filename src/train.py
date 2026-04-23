@@ -22,7 +22,7 @@ def parse_args():
                         help="Path to pre-saved data splits (outputs/data/). When set, skips re-downloading "
                              "and uses the same splits as all other pipeline steps.")
     parser.add_argument("--epochs", type=float, default=3.0, help="Number of training epochs.")
-    parser.add_argument("--batch_size", type=int, default=32, help="Batch size for training and eval.")
+    parser.add_argument("--batch_size", type=int, default=16, help="Batch size for training and eval.")
     parser.add_argument("--learning_rate", type=float, default=2e-5, help="Learning rate.")
     parser.add_argument("--train_samples", type=int, default=-1, help="Max training samples to use (-1 for all).")
     parser.add_argument("--cache_dir", type=str, default=None, help="Directory for Hugging Face and dataset cache.")
@@ -181,6 +181,8 @@ def main():
         per_device_train_batch_size=args.batch_size,
         per_device_eval_batch_size=args.batch_size,
         learning_rate=args.learning_rate,
+        warmup_ratio=0.1,  # Ramp up LR over first 10% of steps to protect pre-trained weights
+        lr_scheduler_type="linear",  # Linear decay after warmup (Devlin et al., 2019)
         eval_strategy="epoch",  # Evaluate linearly over epochs
         save_strategy="epoch",  # Save linearly over epochs
         save_total_limit=2,  # Per instructions, do not blow up storage

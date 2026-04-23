@@ -10,7 +10,7 @@ logger = logging.getLogger("pipeline")
 
 
 def train_baseline(X_train, y_train, model_save_path="models/baseline_model.joblib"):
-    logger.info("Training Logistic Regression Model with TF-IDF...")
+    logger.info("Training Logistic Regression Model with TF-IDF (with CV over C)...")
     pipeline = Pipeline(
         [
             ("tfidf", TfidfVectorizer(max_features=10000, stop_words="english")),
@@ -18,12 +18,24 @@ def train_baseline(X_train, y_train, model_save_path="models/baseline_model.jobl
         ]
     )
 
-    pipeline.fit(X_train, y_train)
+    param_grid = {"clf__C": [0.01, 0.1, 1.0, 10.0]}
+
+    from sklearn.model_selection import GridSearchCV
+
+    grid_search = GridSearchCV(
+        pipeline, param_grid, cv=5, scoring="roc_auc", n_jobs=-1, verbose=1
+    )
+    grid_search.fit(X_train, y_train)
+
+    best_C = grid_search.best_params_["clf__C"]
+    logger.info(f"Best C={best_C} (CV ROC-AUC: {grid_search.best_score_:.4f})")
+
+    best_pipeline = grid_search.best_estimator_
 
     os.makedirs(os.path.dirname(model_save_path), exist_ok=True)
-    joblib.dump(pipeline, model_save_path)
+    joblib.dump(best_pipeline, model_save_path)
     logger.info(f"Saved baseline model to {model_save_path}")
-    return pipeline
+    return best_pipeline
 
 
 def run_baseline(test_ds, model_load_path="models/baseline_model.joblib"):

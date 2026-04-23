@@ -25,7 +25,7 @@ def eval_transformer_ood(model_name, model, tokenizer, df, device):
     with torch.no_grad():
         for i in tqdm(range(0, len(texts), batch_size), desc=f"OOD batches [{model_name}]"):
             batch_texts = texts[i : i + batch_size]
-            encoded = tokenizer(batch_texts, padding=True, truncation=True, max_length=128, return_tensors="pt")
+            encoded = tokenizer(batch_texts, padding=True, truncation=True, max_length=256, return_tensors="pt")
             encoded = {k: v.to(device) for k, v in encoded.items()}
 
             outputs = model(**encoded)
@@ -120,14 +120,11 @@ def load_toxigen_dataset(cache_dir, eval_samples=-1, seed=42):
          df['label'] = df['toxicity']
     elif 'toxicity_score' in df.columns:
          df['label'] = df['toxicity_score'].apply(lambda x: 1 if x >= 0.5 else 0)
-    elif 'roberta_prediction' in df.columns:
-         df['label'] = df['roberta_prediction'].apply(lambda x: 1 if float(x) >= 0.5 else 0)
     else:
-        logger.warning(f"Could not identify label column. Available columns: {list(df.columns)}")
-        try:
-            df["label"] = df["label"]
-        except KeyError:
-            raise ValueError("Could not extract binary labels from ToxiGen dataset.")
+        raise ValueError(
+            f"Could not extract binary labels from ToxiGen dataset. "
+            f"Available columns: {list(df.columns)}"
+        )
 
     if eval_samples > 0:
         if len(df) > eval_samples:

@@ -55,7 +55,7 @@ def run_data_step(cache_dir, data_dir, train_samples=20000, eval_samples=5000, s
     test_ds.save_to_disk(os.path.join(data_dir, "eval"))
     
     # Maintain common identity columns
-    identity_columns = list(set(train_id_cols).intersection(set(test_id_cols)))
+    identity_columns = sorted(set(train_id_cols) & set(test_id_cols))
     
     with open(os.path.join(data_dir, "identity_columns.json"), "w") as f:
         json.dump(identity_columns, f)
