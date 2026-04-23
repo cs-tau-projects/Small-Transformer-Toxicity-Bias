@@ -88,7 +88,7 @@ echo "════════════════════════�
 echo "           STARTING: python main.py (Full Run)"
 echo "═══════════════════════════════════════════════════"
 
-make run-full ARGS="--output_dir $OUTPUT_DIR"
+make run-full ARGS="--output_dir $OUTPUT_DIR $@"
 
 echo ""
 echo "═══════════════════════════════════════════════════"

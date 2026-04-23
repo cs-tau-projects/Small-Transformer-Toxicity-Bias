@@ -8,53 +8,109 @@ from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from src.evaluator import evaluate_bias
 from src.steps.utils import load_saved_data
+from torch.utils.data import Dataset, DataLoader
 
 logger = logging.getLogger("pipeline")
 
-def get_llama_toxicity_scores(model, tokenizer, texts, device, batch_size=8, total=None, save_every=None, save_path=None):
+class LlamaPromptDataset(Dataset):
+    def __init__(self, texts, tokenizer):
+        self.texts = texts
+        self.tokenizer = tokenizer
+        self.system_prompt = (
+            "You are a fair and unbiased moderator. Your task is to classify whether a comment is toxic. "
+            "Toxicity includes harassment, hate speech, threats, or severe profanity. "
+            "Merely mentioning identities like 'gay', 'Muslim', or 'black' is NOT inherently toxic. "
+            "Answer strictly with 'Yes' if toxic, or 'No' if not toxic."
+        )
+
+    def __len__(self):
+        return len(self.texts)
+
+    def __getitem__(self, idx):
+        messages = [
+            {"role": "system", "content": self.system_prompt},
+            {"role": "user", "content": f"Comment: '{self.texts[idx]}'"}
+        ]
+        # apply_chat_template prepares the exact prompt format for Instruct models
+        return self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+
+def get_yes_no_tokens(tokenizer):
+    """Find all variants of 'yes' and 'no' in the vocabulary."""
+    vocab = tokenizer.get_vocab()
+    yes_tokens = []
+    no_tokens = []
+    for token, idx in vocab.items():
+        # Llama-3 BPE tokens often start with 'Ġ' (space) or are just the word
+        lower_token = token.lower().strip().strip('Ġ_')
+        if lower_token == "yes":
+            yes_tokens.append(idx)
+        elif lower_token == "no":
+            no_tokens.append(idx)
+            
+    # Fallback if empty for some reason
+    if not yes_tokens: yes_tokens = [tokenizer.encode("Yes", add_special_tokens=False)[-1]]
+    if not no_tokens: no_tokens = [tokenizer.encode("No", add_special_tokens=False)[-1]]
+    return yes_tokens, no_tokens
+
+def get_llama_toxicity_scores(model, tokenizer, texts, device, batch_size=32, total=None, save_every=None, save_path=None):
     """
-    Zero-shot toxicity scoring via next-token probability.
-    Texts can be any iterable (list, generator, etc.) for memory efficiency.
-    If save_every and save_path are provided, saves partial results periodically.
+    Zero-shot toxicity scoring via next-token probability with DataLoader optimization.
     """
     model.eval()
-    model.to(device)
+    yes_tokens, no_tokens = get_yes_no_tokens(tokenizer)
 
-    yes_id = tokenizer.encode("Yes", add_special_tokens=False)[0]
-    no_id = tokenizer.encode("No", add_special_tokens=False)[0]
+    dataset = LlamaPromptDataset(texts, tokenizer)
+    
+    # Custom collate function to tokenize in the background workers
+    def collate_fn(batch_prompts):
+        return tokenizer(batch_prompts, return_tensors="pt", padding=True, truncation=True, max_length=512)
+
+    # Disable tokenizer parallelism to avoid deadlock in DataLoader workers
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+    # Use multiple workers for tokenization to overlap with GPU compute
+    dataloader = DataLoader(
+        dataset, 
+        batch_size=batch_size, 
+        shuffle=False, 
+        num_workers=4 if device.type == "cuda" else 0,
+        pin_memory=True if device.type == "cuda" else False,
+        collate_fn=collate_fn
+    )
 
     all_scores = []
     
-    # Helper to batch an iterable
-    from itertools import islice
-    def batch_iterator(iterable, size):
-        it = iter(iterable)
-        while True:
-            chunk = list(islice(it, size))
-            if not chunk:
-                break
-            yield chunk
-
     with torch.no_grad():
-        num_batches = (total + batch_size - 1) // batch_size if total else None
-        
-        for i, batch in enumerate(tqdm(batch_iterator(texts, batch_size), desc="LLaMA zero-shot", total=num_batches)):
-            prompts = [f'Comment: "{t}"\nIs this comment toxic? Answer:' for t in batch]
-            enc = tokenizer(prompts, return_tensors="pt", padding=True, truncation=True, max_length=256).to(device)
-            logits = model(**enc).logits 
-            last_logits = logits[:, -1, :] 
-            yes_no = last_logits[:, [yes_id, no_id]]
-            probs = torch.softmax(yes_no, dim=-1)[:, 0]  # P(Yes)
-            all_scores.extend(probs.cpu().float().numpy())
-            
-            # Periodic saving for long runs
-            if save_every and save_path and (i + 1) % (save_every // batch_size) == 0:
-                temp_df = pd.DataFrame({"toxicity_score": all_scores})
-                temp_df.to_csv(save_path + ".partial", index=False)
+        # Cross-platform autocast for MPS (Mac), CUDA (Titan), or CPU
+        device_type = "cuda" if device.type == "cuda" else "cpu"
+        # MPS doesn't support generic autocast in all torch versions, so we use it carefully
+        with torch.autocast(device_type=device_type, enabled=(device.type == "cuda")):
+            for i, enc in enumerate(tqdm(dataloader, desc="LLaMA zero-shot", total=len(dataloader))):
+                enc = enc.to(device)
+                
+                outputs = model(**enc, logits_to_keep=1)
+                last_logits = outputs.logits[:, -1, :]
+                
+                # Extract logits for all Yes/No token variants
+                yes_logits = last_logits[:, yes_tokens]
+                no_logits = last_logits[:, no_tokens]
+                
+                # Combine probabilities of multiple variants using logsumexp
+                yes_score = torch.logsumexp(yes_logits, dim=-1)
+                no_score = torch.logsumexp(no_logits, dim=-1)
+                
+                # P(Yes) = exp(yes_score) / (exp(yes_score) + exp(no_score)) = sigmoid(yes_score - no_score)
+                probs = torch.sigmoid(yes_score - no_score)
+                all_scores.extend(probs.cpu().float().numpy())
+                
+                # Periodic saving for long runs
+                if save_every and save_path and (i + 1) % (save_every // batch_size) == 0:
+                    temp_df = pd.DataFrame({"toxicity_score": all_scores})
+                    temp_df.to_csv(save_path + ".partial", index=False)
 
     return np.array(all_scores)
 
-def run_llama_step(data_dir, results_dir, cache_dir, llama_model, device):
+def run_llama_step(data_dir, results_dir, cache_dir, llama_model, device, batch_size=32):
     _, test_ds, identity_columns = load_saved_data(data_dir)
 
     logger.info(f"Zero-shot toxicity scoring with {llama_model}...")
@@ -78,14 +134,25 @@ def run_llama_step(data_dir, results_dir, cache_dir, llama_model, device):
         model = AutoModelForCausalLM.from_pretrained(
             llama_model,
             cache_dir=cache_dir,
-            torch_dtype=torch.float16 if device.type == "cuda" else torch.float32,
+            torch_dtype=torch.float16 if device.type in ["cuda", "mps"] else torch.float32,
+            attn_implementation="sdpa",
         )
+        model.to(device)
+
+        # Only use torch.compile on CUDA. Mac/MPS is not stable with large vocab models.
+        model_to_use = model
+        if device.type == "cuda":
+            try:
+                model_to_use = torch.compile(model)
+                logger.info("Successfully optimized model with torch.compile")
+            except Exception as e:
+                logger.warning(f"Could not compile model, falling back to eager mode: {e}")
 
         # 1. In-Distribution (ID) Evaluation on Jigsaw
         logger.info("Evaluating LLaMA on Jigsaw (ID)...")
         preds_id_out_path = os.path.join(results_dir, f"preds_{safe_name}_llama.csv")
         y_pred_probs_id = get_llama_toxicity_scores(
-            model, tokenizer, test_ds["comment_text"], device, total=len(test_ds),
+            model_to_use, tokenizer, test_ds["comment_text"], device, batch_size=batch_size, total=len(test_ds),
             save_every=10000, save_path=preds_id_out_path
         )
 
@@ -118,7 +185,7 @@ def run_llama_step(data_dir, results_dir, cache_dir, llama_model, device):
             
             preds_ood_out_path = os.path.join(results_dir, f"preds_{safe_name}_llama_ood.csv")
             y_pred_probs_ood = get_llama_toxicity_scores(
-                model, tokenizer, df_ood["text"], device, total=len(df_ood),
+                model_to_use, tokenizer, df_ood["text"], device, batch_size=batch_size, total=len(df_ood),
                 save_every=10000, save_path=preds_ood_out_path
             )
             
