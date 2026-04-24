@@ -77,6 +77,10 @@ echo "✓ HF_HOME=$HF_HOME"
 
 mkdir -p "$OUTPUT_DIR"
 
+# ── CPU Pinning (prevent sklearn/joblib from over-subscribing) ──
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+export LOKY_MAX_CPU_COUNT=$SLURM_CPUS_PER_TASK
+
 # ── Diagnostics (GPU/Torch) ─────────────────────────────
 echo ""
 echo "── GPU Diagnostics ──"
