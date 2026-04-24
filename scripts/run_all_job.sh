@@ -15,6 +15,7 @@ set -euo pipefail
 
 # ── Argument Parsing ────────────────────────────────────
 OUTPUT_SUBDIR=""
+EXTRA_ARGS=()
 while [[ $# -gt 0 ]]; do
   case $1 in
     --outputdir)
@@ -22,8 +23,10 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     *)
-      if [ -z "$OUTPUT_SUBDIR" ]; then
+      if [ -z "$OUTPUT_SUBDIR" ] && [[ ! "$1" =~ ^- ]]; then
         OUTPUT_SUBDIR="$1"
+      else
+        EXTRA_ARGS+=("$1")
       fi
       shift
       ;;
@@ -88,7 +91,7 @@ echo "════════════════════════�
 echo "           STARTING: python main.py (Full Run)"
 echo "═══════════════════════════════════════════════════"
 
-make run-full ARGS="--output_dir $OUTPUT_DIR $@"
+make run-full ARGS="--output_dir $OUTPUT_DIR ${EXTRA_ARGS[*]:-}"
 
 echo ""
 echo "═══════════════════════════════════════════════════"

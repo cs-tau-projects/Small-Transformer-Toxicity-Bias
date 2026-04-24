@@ -92,14 +92,14 @@ echo "           STARTING: Data + LLaMA (Full Run)"
 echo "═══════════════════════════════════════════════════"
 
 # Step 1: Prepare Full Data
-make run-scientific ARGS="--step data --output_dir $OUTPUT_DIR ${EXTRA_ARGS[@]:-}"
+make run-scientific ARGS="--step data --output_dir $OUTPUT_DIR ${EXTRA_ARGS[*]:-}"
 
 # Step 2: Prepare OOD Data
 # This generates the standardized ToxiGen parquet file for LLaMA evaluation
-make run-scientific ARGS="--step eval-ood --output_dir $OUTPUT_DIR ${EXTRA_ARGS[@]:-}"
+make run-scientific ARGS="--step eval-ood --output_dir $OUTPUT_DIR ${EXTRA_ARGS[*]:-}"
 
 # Step 3: Run LLaMA Evaluation
-make run-scientific ARGS="--step llama --output_dir $OUTPUT_DIR ${EXTRA_ARGS[@]:-}"
+make run-scientific ARGS="--step llama --output_dir $OUTPUT_DIR ${EXTRA_ARGS[*]:-}"
 
 echo ""
 echo "═══════════════════════════════════════════════════"
