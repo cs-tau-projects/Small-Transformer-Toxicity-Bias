@@ -60,7 +60,7 @@ def download_and_prep_jigsaw(split="train", threshold=0.5, cache_dir=None):
     return ds, kept_identities
 
 
-def tokenize_jigsaw_dataset(dataset, tokenizer_name: str, max_length: int = 256, cache_dir: str = None):
+def tokenize_jigsaw_dataset(dataset, tokenizer_name: str, max_length: int = 128, cache_dir: str = None):
     """
     Tokenizes the dataset eagerly using HF's memory-mapped Arrow backend.
     """
@@ -93,10 +93,9 @@ class JigsawDataset(Dataset):
         self.identity_columns = identity_columns
 
         # Pre-calculate identity matrix to avoid repeated lookups during evaluation
-        identities_list = []
-        for col in self.identity_columns:
-            identities_list.append(self.dataset[col])
-        self.identity_matrix = np.array(identities_list).T
+        # Fast extraction using HF Dataset's native format conversion
+        df = self.dataset.select_columns(self.identity_columns).to_pandas()
+        self.identity_matrix = df.to_numpy(dtype=np.float32)
 
     def __len__(self):
         return len(self.dataset)
