@@ -27,12 +27,17 @@ class LlamaPromptDataset(Dataset):
         return len(self.texts)
 
     def __getitem__(self, idx):
-        messages = [
-            {"role": "system", "content": self.system_prompt},
-            {"role": "user", "content": f"Comment: '{self.texts[idx]}'"}
-        ]
         # apply_chat_template prepares the exact prompt format for Instruct models
-        return self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        if hasattr(self.tokenizer, "chat_template") and self.tokenizer.chat_template is not None:
+            messages = [
+                {"role": "system", "content": self.system_prompt},
+                {"role": "user", "content": f"Comment: '{self.texts[idx]}'"}
+            ]
+            return self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        else:
+            # Fallback for base models without a chat template.
+            # This matches the exact prompt used previously for the base model.
+            return f'Comment: "{self.texts[idx]}"\nIs this comment toxic? Answer:'
 
 def get_yes_no_tokens(tokenizer):
     """Find all variants of 'yes' and 'no' in the vocabulary."""

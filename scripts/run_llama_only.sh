@@ -91,7 +91,11 @@ echo "════════════════════════�
 # Step 1: Prepare Full Data
 make run-scientific ARGS="--step data --output_dir $OUTPUT_DIR $@"
 
-# Step 2: Run LLaMA Evaluation
+# Step 2: Prepare OOD Data
+# This generates the standardized ToxiGen parquet file for LLaMA evaluation
+make run-scientific ARGS="--step eval-ood --output_dir $OUTPUT_DIR $@"
+
+# Step 3: Run LLaMA Evaluation
 make run-scientific ARGS="--step llama --output_dir $OUTPUT_DIR $@"
 
 echo ""

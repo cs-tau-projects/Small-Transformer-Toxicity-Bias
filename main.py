@@ -14,7 +14,7 @@ def main():
     parser.add_argument("--models", type=str, nargs="+", 
                         default=["distilbert-base-uncased", "distilroberta-base", "google/bert_uncased_L-4_H-512_A-8"],
                         help="List of transformer models to evaluate.")
-    parser.add_argument("--llama_model", type=str, default="meta-llama/Llama-3.2-1B-Instruct",
+    parser.add_argument("--llama_model", type=str, default="meta-llama/Llama-3.2-1B",
                         help="LLaMA model identifier for inference step.")
     parser.add_argument("--llama_batch_size", type=int, default=32,
                         help="Batch size for LLaMA zero-shot evaluation.")
