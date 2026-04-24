@@ -15,6 +15,7 @@ set -euo pipefail
 
 # ── Argument Parsing ────────────────────────────────────
 OUTPUT_SUBDIR=""
+EXTRA_ARGS=()
 while [[ $# -gt 0 ]]; do
   case $1 in
     --outputdir)
@@ -24,6 +25,8 @@ while [[ $# -gt 0 ]]; do
     *)
       if [ -z "$OUTPUT_SUBDIR" ] && [[ ! "$1" =~ ^- ]]; then
         OUTPUT_SUBDIR="$1"
+      else
+        EXTRA_ARGS+=("$1")
       fi
       shift
       ;;
@@ -89,14 +92,14 @@ echo "           STARTING: Data + LLaMA (Full Run)"
 echo "═══════════════════════════════════════════════════"
 
 # Step 1: Prepare Full Data
-make run-scientific ARGS="--step data --output_dir $OUTPUT_DIR $@"
+make run-scientific ARGS="--step data --output_dir $OUTPUT_DIR ${EXTRA_ARGS[@]:-}"
 
 # Step 2: Prepare OOD Data
 # This generates the standardized ToxiGen parquet file for LLaMA evaluation
-make run-scientific ARGS="--step eval-ood --output_dir $OUTPUT_DIR $@"
+make run-scientific ARGS="--step eval-ood --output_dir $OUTPUT_DIR ${EXTRA_ARGS[@]:-}"
 
 # Step 3: Run LLaMA Evaluation
-make run-scientific ARGS="--step llama --output_dir $OUTPUT_DIR $@"
+make run-scientific ARGS="--step llama --output_dir $OUTPUT_DIR ${EXTRA_ARGS[@]:-}"
 
 echo ""
 echo "═══════════════════════════════════════════════════"
