@@ -153,14 +153,9 @@ def run_llama_step(data_dir, results_dir, cache_dir, llama_model, device, batch_
         )
         model.to(device)
 
-        # Only use torch.compile on CUDA. Mac/MPS is not stable with large vocab models.
+        # torch.compile can trigger NameError inside dynamo for some
+        # transformers/torch version combinations, so we skip it.
         model_to_use = model
-        if device.type == "cuda" and torch.cuda.get_device_capability(device)[0] >= 7:
-            try:
-                model_to_use = torch.compile(model)
-                logger.info("Successfully optimized model with torch.compile")
-            except Exception as e:
-                logger.warning(f"Could not compile model, falling back to eager mode: {e}")
 
         # 1. In-Distribution (ID) Evaluation on Jigsaw
         logger.info("Evaluating LLaMA on Jigsaw (ID)...")
