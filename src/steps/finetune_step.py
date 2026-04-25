@@ -25,7 +25,7 @@ def run_finetune_step(models, output_dir, cache_dir=None, seed=42, train_samples
                 "--epochs",
                 "1",
                 "--batch_size",
-                "16",
+                "32",
                 "--seed",
                 str(seed),
                 "--train_samples",

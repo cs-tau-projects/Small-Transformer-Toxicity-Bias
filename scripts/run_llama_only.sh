@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=toxicity-bias-all
-#SBATCH --output=logs/toxicity_%j.out
-#SBATCH --error=logs/toxicity_%j.err
+#SBATCH --job-name=llama-data-full
+#SBATCH --output=logs/llama_%j.out
+#SBATCH --error=logs/llama_%j.err
 #SBATCH --partition=studentkillable
 #SBATCH --time=24:00:00
 #SBATCH --signal=USR1@120
@@ -92,12 +92,20 @@ echo ""
 
 # ── Run Pipeline ────────────────────────────────────────
 echo "═══════════════════════════════════════════════════"
-echo "           STARTING: python main.py (Full Run)"
+echo "           STARTING: Data + LLaMA (Full Run)"
 echo "═══════════════════════════════════════════════════"
 
-make run-full ARGS="--output_dir $OUTPUT_DIR ${EXTRA_ARGS[*]:-}"
+# Step 1: Prepare Full Data
+make run-scientific ARGS="--step data --output_dir $OUTPUT_DIR ${EXTRA_ARGS[*]:-}"
+
+# Step 2: Prepare OOD Data
+# This generates the standardized ToxiGen parquet file for LLaMA evaluation
+make run-scientific ARGS="--step eval-ood --output_dir $OUTPUT_DIR ${EXTRA_ARGS[*]:-}"
+
+# Step 3: Run LLaMA Evaluation
+make run-scientific ARGS="--step llama --output_dir $OUTPUT_DIR ${EXTRA_ARGS[*]:-}"
 
 echo ""
 echo "═══════════════════════════════════════════════════"
-echo "  ✓ Pipeline completed at $(date)"
+echo "  ✓ LLaMA Pipeline completed at $(date)"
 echo "═══════════════════════════════════════════════════"

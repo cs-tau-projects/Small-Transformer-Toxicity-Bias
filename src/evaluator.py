@@ -105,7 +105,7 @@ def evaluate_bias(y_true, y_pred_probs, identity_matrix, identity_columns, thres
         # The dataset logic leaves identity values continuous.
         # We consider a subgroup "active" for an example if the score > 0.5
         subgroup_scores = identity_matrix[:, i]
-        subgroup_mask = subgroup_scores > 0.5
+        subgroup_mask = subgroup_scores >= 0.5
 
         # Calculate metrics if there are any examples in the subgroup
         if subgroup_mask.sum() > 0:

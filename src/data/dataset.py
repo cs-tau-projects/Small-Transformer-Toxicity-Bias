@@ -7,32 +7,7 @@ from transformers import AutoTokenizer
 
 logger = logging.getLogger("pipeline")
 
-ALL_IDENTITY_COLUMNS = [
-    "asian",
-    "atheist",
-    "bisexual",
-    "black",
-    "buddhist",
-    "christian",
-    "female",
-    "heterosexual",
-    "hindu",
-    "homosexual_gay_or_lesbian",
-    "intellectual_or_learning_disability",
-    "jewish",
-    "latino",
-    "male",
-    "muslim",
-    "other_disability",
-    "other_gender",
-    "other_race_or_ethnicity",
-    "other_religion",
-    "other_sexual_orientation",
-    "physical_disability",
-    "psychiatric_or_mental_illness",
-    "transgender",
-    "white",
-]
+from src.data.data_utils import ALL_IDENTITY_COLUMNS
 
 
 def download_and_prep_jigsaw(split="train", threshold=0.5, cache_dir=None):
@@ -118,10 +93,9 @@ class JigsawDataset(Dataset):
         self.identity_columns = identity_columns
 
         # Pre-calculate identity matrix to avoid repeated lookups during evaluation
-        identities_list = []
-        for col in self.identity_columns:
-            identities_list.append(self.dataset[col])
-        self.identity_matrix = np.array(identities_list).T
+        # Fast extraction using HF Dataset's native format conversion
+        df = self.dataset.select_columns(self.identity_columns).to_pandas()
+        self.identity_matrix = df.to_numpy(dtype=np.float32)
 
     def __len__(self):
         return len(self.dataset)

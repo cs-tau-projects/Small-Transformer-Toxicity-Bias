@@ -37,21 +37,3 @@ def train_baseline(X_train, y_train, model_save_path="models/baseline_model.jobl
     logger.info(f"Saved baseline model to {model_save_path}")
     return best_pipeline
 
-
-def run_baseline(test_ds, model_load_path="models/baseline_model.joblib"):
-    """
-    Takes the test set and returns predictions for the evaluation agent.
-    """
-    logger.info(f"Loading baseline model from {model_load_path}...")
-    try:
-        pipeline = joblib.load(model_load_path)
-    except FileNotFoundError:
-        logger.error(f"Model not found at {model_load_path}. Please train first.")
-        raise
-
-    X_test = test_ds["comment_text"]
-
-    logger.info("Predicting with Baseline Model...")
-    y_pred_probs = pipeline.predict_proba(X_test)[:, 1]
-
-    return y_pred_probs

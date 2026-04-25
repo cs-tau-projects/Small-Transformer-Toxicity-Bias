@@ -127,7 +127,7 @@ def format_final_report(all_results_dict):
         cols = ['Identity']
         if 'Total Examples' in df.columns:
             cols.append('Total Examples')
-        metric_cols = [col for col in df.columns if col.startswith(('1.', '2.', '3.', '4.', '5.', '6.'))]
+        metric_cols = [col for col in df.columns if col.startswith(('1.', '2.', '3.', '4.', '5.', '6.', '7.', '8.'))]
         
         # We rename the metric columns to have the model name prefixed
         rename_dict = {col: f"{model_name} {col.split('. ')[1]}" for col in metric_cols}

@@ -16,6 +16,8 @@ def main():
                         help="List of transformer models to evaluate.")
     parser.add_argument("--llama_model", type=str, default="meta-llama/Llama-3.2-1B",
                         help="LLaMA model identifier for inference step.")
+    parser.add_argument("--llama_batch_size", type=int, default=32,
+                        help="Batch size for LLaMA zero-shot evaluation.")
     parser.add_argument("--train_samples", type=int, default=20000,
                         help="Number of training samples to use for baseline (-1 for all).")
     parser.add_argument("--eval_samples", type=int, default=5000,
@@ -97,7 +99,7 @@ def main():
     if args.step in ["llama", "all"]:
         from src.steps.llama_step import run_llama_step
         logger.info(f"Running [bold cyan]LLaMA Evaluation[/bold cyan] step{full_msg}", extra={"markup": True})
-        run_llama_step(data_dir, results_dir, cache_dir, args.llama_model, device)
+        run_llama_step(data_dir, results_dir, cache_dir, args.llama_model, device, args.llama_batch_size)
 
     if args.step in ["analysis", "all"]:
         from src.analysis import run_analysis_step
