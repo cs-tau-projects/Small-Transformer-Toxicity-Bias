@@ -101,7 +101,7 @@ echo "════════════════════════�
 python -m src.sanity_check \
     --output_dir "$OUTPUT_DIR" \
     --n_samples 100 \
-    --epochs 20 \
+    --epochs 50 \
     --seed 42
 
 echo ""
