@@ -12,6 +12,27 @@ from src.evaluator import evaluate_bias
 
 logger = logging.getLogger("pipeline")
 
+# Mapping from ToxiGen variant group names to canonical short names.
+# The dataset contains inconsistent labelling (e.g. "mexican" and "mexican
+# folks") which would otherwise be treated as separate subgroups.
+TOXIGEN_GROUP_NORMALIZATION = {
+    "asian folks": "asian",
+    "black/african-american folks": "black",
+    "black folks / african-americans": "black",
+    "chinese folks": "chinese",
+    "folks with mental disabilities": "mental_dis",
+    "folks with physical disabilities": "physical_dis",
+    "jewish folks": "jewish",
+    "latino/hispanic folks": "latino",
+    "lgbtq+ folks": "lgbtq",
+    "mexican folks": "mexican",
+    "middle eastern folks": "middle_east",
+    "muslim folks": "muslim",
+    "native american/indigenous folks": "native_american",
+    "native american folks": "native_american",
+}
+
+
 def eval_transformer_ood(model_name, model, tokenizer, df, device):
     """Evaluates a transformer model on an Out-Of-Domain dataset (ToxiGen)."""
     logger.info(f"Tokenizing OOD data for {model_name}...")
@@ -66,6 +87,7 @@ def extract_toxigen_identities_and_evaluate(model_name, df_with_preds):
                 groups = [str(group_val)]
 
             for g in groups:
+                g = TOXIGEN_GROUP_NORMALIZATION.get(g, g)
                 if g and g.lower() not in ["none", "nan", "null", "unknown"]:
                     if g not in identity_cols:
                         identity_cols.append(g)

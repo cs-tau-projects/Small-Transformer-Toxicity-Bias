@@ -7,6 +7,7 @@ import numpy as np
 from datasets import load_from_disk
 from rich.console import Console
 from rich.table import Table
+from src.steps.eval_ood_step import TOXIGEN_GROUP_NORMALIZATION
 
 logger = logging.getLogger("pipeline")
 console = Console()
@@ -84,6 +85,7 @@ def _compute_toxigen_subgroup_stats(toxigen_df):
             groups = [str(group_val)]
 
         for g in groups:
+            g = TOXIGEN_GROUP_NORMALIZATION.get(g, g)
             if g and g.lower() not in ["none", "nan", "null", "unknown"]:
                 if g not in group_membership:
                     group_membership[g] = []
