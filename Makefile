@@ -1,4 +1,4 @@
-.PHONY: help install test run-all tiny-run data baseline eval-raw finetune eval-finetuned eval-ood llama analysis report clean lint format check slurm
+.PHONY: help install test run-all tiny-run data baseline eval-raw finetune eval-finetuned eval-ood llama analysis report clean lint format check slurm sanity-check slurm-sanity
 
 PYTHON = python
 
@@ -20,7 +20,9 @@ help:
 	@echo "  make analysis        - Run dataset statistics and error sampling"
 	@echo "  make hf-login        - Authenticate with Hugging Face Hub"
 	@echo "  make report          - Generate final evaluation report"
+	@echo "  make sanity-check    - Run sanity check (overfit on 100 samples)"
 	@echo "  make slurm           - Submit the pipeline as a Slurm job (sbatch)"
+	@echo "  make slurm-sanity    - Submit sanity check as a Slurm job"
 	@echo "  make clean           - Remove cached files and outputs"
 
 install:
@@ -84,9 +86,18 @@ hf-login:
 report:
 	python main.py --step report
 
+sanity-check:
+	python -m src.sanity_check $(ARGS)
+
 slurm:
 	@mkdir -p logs
 	sbatch scripts/run_all_job.sh
+	@echo "Monitor with: squeue --me"
+
+slurm-sanity:
+	@mkdir -p logs
+	@echo "Submitting sanity check job..."
+	sbatch scripts/run_sanity_check.sh
 	@echo "Monitor with: squeue --me"
 
 slurm-tiny:

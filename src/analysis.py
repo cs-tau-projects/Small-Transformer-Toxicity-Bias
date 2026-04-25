@@ -1,6 +1,7 @@
 import logging
 import os
 import json
+import ast
 import pandas as pd
 import numpy as np
 from datasets import load_from_disk
@@ -10,29 +11,21 @@ from rich.table import Table
 logger = logging.getLogger("pipeline")
 console = Console()
 
-def run_analysis_step(data_dir, results_dir, model_name_for_errors=None):
-    """
-    Performs dataset statistics and error analysis.
-    """
-    logger.info("Running Dataset Analysis & Error Sampling...")
-    console.print("\n[bold cyan]--- Running Dataset Analysis & Error Sampling ---[/bold cyan]")
-    
-    # 1. Load Data
-    test_path = os.path.join(data_dir, "test")
-    if not os.path.exists(test_path):
-        logger.error(f"Test dataset not found at {test_path}")
-        console.print(f"[red]Error: Test dataset not found at {test_path}[/red]")
-        return
-    
-    test_ds = load_from_disk(test_path)
-    with open(os.path.join(data_dir, "identity_columns.json"), "r") as f:
-        identity_columns = json.load(f)
-        
-    # 2. Dataset Statistics
-    console.print("Calculating subgroup distributions...")
+
+def _display_stats_table(stats_df, title):
+    """Displays a stats DataFrame as a rich table and logs it."""
+    table = Table(title=title, show_header=True, header_style="bold magenta")
+    for col in stats_df.columns:
+        table.add_column(col)
+    for _, row in stats_df.iterrows():
+        table.add_row(*[str(val) for val in row])
+    console.print(table)
+
+
+def _compute_jigsaw_subgroup_stats(test_ds, identity_columns):
+    """Computes per-subgroup sample counts for the Jigsaw test set."""
     stats = []
-    
-    # Overall metrics
+
     total_samples = len(test_ds)
     total_toxic = sum(test_ds["is_toxic"])
     stats.append({
@@ -42,44 +35,133 @@ def run_analysis_step(data_dir, results_dir, model_name_for_errors=None):
         "Non-Toxic": total_samples - total_toxic,
         "Toxicity Rate": f"{(total_toxic / total_samples):.2%}" if total_samples > 0 else "0%"
     })
-    
+
     for col in identity_columns:
-        # Determine subgroup membership (continuous identity prob > 0.5)
-        # Note: In Jigsaw, values >= 0.5 are typically considered "belonging" to the subgroup
         subgroup_mask = [val >= 0.5 for val in test_ds[col]]
         is_toxic = test_ds["is_toxic"]
-        
+
         subgroup_indices = [i for i, x in enumerate(subgroup_mask) if x]
-        if not subgroup_indices:
-            continue
-            
         subgroup_labels = [is_toxic[i] for i in subgroup_indices]
         n_subgroup = len(subgroup_labels)
         n_toxic = sum(subgroup_labels)
-        
+
         stats.append({
             "Identity": col,
             "Total": n_subgroup,
             "Toxic": n_toxic,
             "Non-Toxic": n_subgroup - n_toxic,
-            "Toxicity Rate": f"{(n_toxic / n_subgroup):.2%}"
+            "Toxicity Rate": f"{(n_toxic / n_subgroup):.2%}" if n_subgroup > 0 else "N/A"
         })
-        
-    stats_df = pd.DataFrame(stats)
-    stats_path = os.path.join(results_dir, "dataset_stats.csv")
-    stats_df.to_csv(stats_path, index=False)
+
+    return pd.DataFrame(stats)
+
+
+def _compute_toxigen_subgroup_stats(toxigen_df):
+    """Computes per-subgroup sample counts for the ToxiGen OOD dataset."""
+    # Find the group column
+    possible_group_cols = ["target_groups", "target_group", "group"]
+    found_group_col = next((c for c in possible_group_cols if c in toxigen_df.columns), None)
+
+    if not found_group_col:
+        logger.warning("Could not find identity group column in ToxiGen data.")
+        return None
+
+    # Parse identity groups per row (same logic as extract_toxigen_identities_and_evaluate)
+    group_membership = {}
+    for i, row in toxigen_df.iterrows():
+        group_val = row[found_group_col]
+        if isinstance(group_val, str):
+            if group_val.startswith("[") and group_val.endswith("]"):
+                try:
+                    groups = ast.literal_eval(group_val)
+                except (ValueError, SyntaxError):
+                    groups = [group_val]
+            else:
+                groups = [g.strip() for g in group_val.split(",")]
+        elif isinstance(group_val, list):
+            groups = group_val
+        else:
+            groups = [str(group_val)]
+
+        for g in groups:
+            if g and g.lower() not in ["none", "nan", "null", "unknown"]:
+                if g not in group_membership:
+                    group_membership[g] = []
+                group_membership[g].append(i)
+
+    stats = []
+    total = len(toxigen_df)
+    total_toxic = int(toxigen_df["label"].sum())
+    stats.append({
+        "Identity": "Overall",
+        "Total": total,
+        "Toxic": total_toxic,
+        "Non-Toxic": total - total_toxic,
+        "Toxicity Rate": f"{(total_toxic / total):.2%}" if total > 0 else "0%"
+    })
+
+    for group_name in sorted(group_membership.keys()):
+        indices = group_membership[group_name]
+        subgroup_labels = toxigen_df.loc[indices, "label"]
+        n_subgroup = len(indices)
+        n_toxic = int(subgroup_labels.sum())
+
+        stats.append({
+            "Identity": group_name,
+            "Total": n_subgroup,
+            "Toxic": n_toxic,
+            "Non-Toxic": n_subgroup - n_toxic,
+            "Toxicity Rate": f"{(n_toxic / n_subgroup):.2%}" if n_subgroup > 0 else "N/A"
+        })
+
+    return pd.DataFrame(stats)
+
+
+def run_analysis_step(data_dir, results_dir, model_name_for_errors=None):
+    """
+    Performs dataset statistics (Jigsaw + ToxiGen) and error analysis.
+    """
+    logger.info("Running Dataset Analysis & Error Sampling...")
+    console.print("\n[bold cyan]--- Running Dataset Analysis & Error Sampling ---[/bold cyan]")
+
+    # 1. Load Data
+    test_path = os.path.join(data_dir, "test")
+    if not os.path.exists(test_path):
+        logger.error(f"Test dataset not found at {test_path}")
+        console.print(f"[red]Error: Test dataset not found at {test_path}[/red]")
+        return
+
+    test_ds = load_from_disk(test_path)
+    with open(os.path.join(data_dir, "identity_columns.json"), "r") as f:
+        identity_columns = json.load(f)
+
+    # 2. Jigsaw Test Set Statistics
+    console.print("Calculating Jigsaw subgroup distributions...")
+    jigsaw_stats_df = _compute_jigsaw_subgroup_stats(test_ds, identity_columns)
+    jigsaw_stats_path = os.path.join(results_dir, "dataset_stats.csv")
+    jigsaw_stats_df.to_csv(jigsaw_stats_path, index=False)
+    _display_stats_table(jigsaw_stats_df, "Jigsaw Test Set — Subgroup Sample Sizes")
+    logger.info(f"Saved Jigsaw statistics to {jigsaw_stats_path}")
+    console.print(f"[green]Saved Jigsaw statistics to {jigsaw_stats_path}[/green]")
+
+    # 3. ToxiGen OOD Statistics
+    toxigen_path = os.path.join(data_dir, "toxigen_standardized.parquet")
+    if os.path.exists(toxigen_path):
+        console.print("Calculating ToxiGen (OOD) subgroup distributions...")
+        toxigen_df = pd.read_parquet(toxigen_path)
+        toxigen_stats_df = _compute_toxigen_subgroup_stats(toxigen_df)
+
+        if toxigen_stats_df is not None:
+            toxigen_stats_path = os.path.join(results_dir, "dataset_stats_toxigen.csv")
+            toxigen_stats_df.to_csv(toxigen_stats_path, index=False)
+            _display_stats_table(toxigen_stats_df, "ToxiGen (OOD) — Subgroup Sample Sizes")
+            logger.info(f"Saved ToxiGen statistics to {toxigen_stats_path}")
+            console.print(f"[green]Saved ToxiGen statistics to {toxigen_stats_path}[/green]")
+    else:
+        console.print("[yellow]ToxiGen parquet not found — run eval-ood step first to generate OOD statistics.[/yellow]")
+        logger.warning(f"ToxiGen parquet not found at {toxigen_path}. Skipping OOD statistics.")
     
-    # Display stats table
-    table = Table(title="Dataset Subgroup Statistics (Test Set)", show_header=True, header_style="bold magenta")
-    for col in stats_df.columns:
-        table.add_column(col)
-    for _, row in stats_df.iterrows():
-        table.add_row(*[str(val) for val in row])
-    console.print(table)
-    logger.info(f"Saved statistics to {stats_path}")
-    console.print(f"[green]Saved statistics to {stats_path}[/green]")
-    
-    # 3. Error Analysis
+    # 4. Error Analysis
     # We look for a prediction file to sample errors from
     pred_files = [f for f in os.listdir(results_dir) if f.startswith("preds_") and "finetuned" in f and not "ood" in f]
     
