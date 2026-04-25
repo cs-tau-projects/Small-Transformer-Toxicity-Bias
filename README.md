@@ -7,95 +7,75 @@
 * **Itay Hazan** (209277367) - itayhazan@mail.tau.ac.il
 
 ## Project Description
-This project investigates the effectiveness of small pre-trained transformer encoder models (BERT family) when fine-tuned for harmful and toxic text detection. We specifically focus on identifying unintended bias across identity groups—such as gender, religion, and sexual orientation—within these models.
+This project investigates the effectiveness of small pre-trained transformer encoder models (BERT family) when fine-tuned for harmful and toxic text detection. We specifically focus on identifying unintended bias across identity groups -- such as gender, religion, and sexual orientation -- within these models.
 
 While Large Language Models (LLMs) are currently prominent, many deployed moderation systems still rely on smaller transformer-based classifiers due to their stability and ease of deployment. Prior research has shown that these classifiers can exhibit biased behavior toward specific groups even when the text itself is non-toxic.
 
 ## Methodology
-* **Models**: TF-IDF + Logistic Regression baseline, Naive baseline, fine-tuning small encoder-based transformer models (BERT variants), and LLaMA zero-shot evaluation.
-* **Dataset**: Google Jigsaw Unintended Bias in Toxicity Classification dataset.
-* **Evaluation**: Performance is measured using ROC-AUC, subgroup AUC, BPSN AUC, BNSP AUC, False Negative Rates (FNR), and False Positive Rates (FPR) to identify potential bias gaps.
+* **Models**: Naive baseline (majority vote), TF-IDF + Logistic Regression baseline, fine-tuned small encoder-based transformer models (BERT variants), and LLaMA zero-shot evaluation.
+* **Datasets**: Google Jigsaw Unintended Bias in Toxicity Classification (in-distribution) and ToxiGen (out-of-domain).
+* **Evaluation**: ROC-AUC, Subgroup AUC, BPSN AUC, BNSP AUC, False Negative Rates (FNR), and False Positive Rates (FPR) across identity subgroups.
 
-## Environment Setup
+## Setup
 
-For better reproducibility, we recommend using Conda or a Python virtual environment.
-
-### Using Conda
 ```bash
-# Core torch version for the TAU slurm environment
-pip install torch --index-url https://download.pytorch.org/whl/cu124
-
-# Core ML and Data stack
-pip install datasets transformers accelerate>=1.1.0 huggingface_hub
-
-# Data processing and Math
-pip install pandas scikit-learn pyarrow numpy
-
-# Utilities and Tooling
-pip install python-dotenv tqdm pytest rich ruff
+pip install -r requirements.txt
 ```
 
-## How to Run
+For GPU-accelerated training on the TAU SLURM cluster, install the CUDA-compatible PyTorch build first:
+```bash
+pip install torch --index-url https://download.pytorch.org/whl/cu124
+```
 
-The pipeline can be managed using the provided `Makefile` or by calling `main.py` directly.
+## Quick Start
 
-### Running All at Once
+Run the full pipeline end-to-end:
 ```bash
 make run-all
 ```
 
-### Running Step-by-Step
-The pipeline has been designed to support step-by-step execution. This is highly recommended when running heavy jobs to permit easier debugging and to prevent data loss.
-
-All intermediate datasets, models, and results are saved to the `--output_dir` (defaults to `./outputs`), allowing subsequent steps to load them from disk.
-
+Or run each step individually:
 ```bash
-# 1. Download, shuffle, split, and cache the datasets
-python main.py --step data
-
-# 2. Train and evaluate the TF-IDF + Logistic Regression baseline
-python main.py --step baseline
-
-# 3. Evaluate the raw (pre-trained, non-finetuned) Transformer models
-python main.py --step eval-raw
-
-# 4. Trigger fine-tuning jobs for the Transformer models
-python main.py --step finetune
-
-# 5. Evaluate the newly fine-tuned Transformer models
-python main.py --step eval-finetuned
-
-# 6. Evaluate the LLaMA model (requires High-VRAM GPU)
-python main.py --step llama
-
-# 7. Aggregate all saved metrics from the above steps and generate final report
-python main.py --step report
+make data             # Download, shuffle, split, and cache the datasets
+make baseline         # Train and evaluate baselines (TF-IDF + LR, Naive)
+make finetune         # Fine-tune transformer models
+make eval-finetuned   # Evaluate fine-tuned transformers on Jigsaw
+make eval-ood         # Evaluate all models on ToxiGen (out-of-domain)
+make llama            # LLaMA zero-shot evaluation (ID + OOD)
+make analysis         # Dataset statistics and error sampling
+make report           # Aggregate metrics into a final comparison report
 ```
 
-### Key CLI Flags
+Additional targets:
+```bash
+make eval-raw         # Evaluate raw (pre-trained, non-finetuned) transformers
+make sanity-check     # Overfit on 100 samples to validate training correctness
+make tiny-run         # Quick CPU-friendly validation run (100 samples)
+make run-scientific   # 20k train samples, full evaluation set
+make run-full         # Full 1.8M dataset (Warning: takes several days)
+make test             # Run pytest suite
+make lint             # Lint with ruff
+```
+
+## CLI Flags
 
 | Flag | Default | Description |
 |---|---|---|
-| `--config` | `None` | Path to a YAML configuration file to define experiment parameters. |
-| `--train_samples` | `20000` | Max number of training samples used for the baseline and fine-tuning steps. Pass `-1` to train on the **full** training set. |
-| `--eval_samples` | `5000` | Max number of evaluation samples used across all evaluation steps. Pass `-1` to evaluate on the **full** evaluation set. |
-| `--seed` | `42` | Global random seed for reproducibility. |
-| `--output_dir` | `./outputs` | Root directory for all caches, data, models, and results. |
-| `--models` | 3 small transformers | Space-separated list of HuggingFace model identifiers to fine-tune and evaluate. |
-| `--step` | `all` | Pipeline step to run: `data`, `baseline`, `eval-raw`, `finetune`, `eval-finetuned`, `eval-ood`, `llama`, `report`, or `all`. |
+| `--step` | `all` | Pipeline step: `data`, `baseline`, `eval-raw`, `finetune`, `eval-finetuned`, `eval-ood`, `llama`, `analysis`, `report`, or `all`. |
+| `--output_dir` | `./outputs` | Root directory for caches, data, models, and results. |
+| `--models` | 3 small transformers | Space-separated list of HuggingFace model identifiers. |
+| `--llama_model` | `meta-llama/Llama-3.2-1B` | LLaMA model for zero-shot evaluation. |
+| `--llama_batch_size` | `32` | Batch size for LLaMA inference. |
+| `--train_samples` | `20000` | Max training samples (`-1` for full dataset). |
+| `--eval_samples` | `5000` | Max evaluation samples (`-1` for full dataset). |
+| `--seed` | `42` | Global random seed. |
 
-> **Tip:** Use `--train_samples -1 --eval_samples -1` to run the full pipeline without any data sub-sampling.
-
-### University Cluster Usage
-When running on the SLURM cluster, make sure to point the output directory to the persistent storage:
-
+## SLURM Cluster Usage
 ```bash
 python main.py --step all --output_dir /vol/joberant_nobck/data/NLP_368307701_2526a/<YOUR_USER_NAME>
 ```
 
 ## Citation
-
-If you find this research or code useful, please cite it as follows:
 
 ```bibtex
 @software{German_Small-Transformer-Toxicity-Bias_2026,
@@ -107,15 +87,3 @@ If you find this research or code useful, please cite it as follows:
   year = {2026}
 }
 ```
-
-## Requirements
-* **Environment**: Hugging Face Transformers and Datasets ecosystem.
-* **Resources**: University-provided computational resources.
-* **Access**: All data, weights, and APIs used are publicly accessible.
-
-## AI Usage Disclosure
-A generative AI tool (ChatGPT) was used to assist with brainstorming and refining the academic phrasing and structure of the project proposal to ensure conciseness and clarity.
-
-## References
-1. Dixon et al. "Measuring and Mitigating Unintended Bias in Text Classification." (2018).
-2. Xie et al. "SORRY-Bench: Systematically Evaluating Large Language Model Safety Refusal Behaviors." (2025).
