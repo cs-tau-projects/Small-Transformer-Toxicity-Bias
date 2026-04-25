@@ -40,21 +40,30 @@ class LlamaPromptDataset(Dataset):
             return f'Comment: "{self.texts[idx]}"\nIs this comment toxic? Answer:'
 
 def get_yes_no_tokens(tokenizer):
-    """Find all variants of 'yes' and 'no' in the vocabulary."""
+    """Find all variants of 'yes' and 'no' in the vocabulary.
+
+    Explicitly enumerates known BPE surface forms (with and without the
+    Ġ / _ space-prefix) so that the space-prefixed tokens the model is
+    most likely to generate (e.g. ĠYes, ĠNo) are always included.
+    """
     vocab = tokenizer.get_vocab()
-    yes_tokens = []
-    no_tokens = []
-    for token, idx in vocab.items():
-        # Llama-3 BPE tokens often start with 'Ġ' (space) or are just the word
-        lower_token = token.lower().strip().strip('Ġ_')
-        if lower_token == "yes":
-            yes_tokens.append(idx)
-        elif lower_token == "no":
-            no_tokens.append(idx)
-            
-    # Fallback if empty for some reason
-    if not yes_tokens: yes_tokens = [tokenizer.encode("Yes", add_special_tokens=False)[-1]]
-    if not no_tokens: no_tokens = [tokenizer.encode("No", add_special_tokens=False)[-1]]
+
+    yes_variants = ["Yes", "yes", "YES", "ĠYes", "Ġyes", "ĠYES",
+                     "_Yes", "_yes", "_YES"]
+    no_variants  = ["No",  "no",  "NO",  "ĠNo",  "Ġno",  "ĠNO",
+                     "_No",  "_no",  "_NO"]
+
+    yes_tokens = [vocab[t] for t in yes_variants if t in vocab]
+    no_tokens  = [vocab[t] for t in no_variants  if t in vocab]
+
+    # Fallback: encode the space-prefixed word directly
+    if not yes_tokens:
+        yes_tokens = [tokenizer.encode(" Yes", add_special_tokens=False)[-1]]
+    if not no_tokens:
+        no_tokens = [tokenizer.encode(" No", add_special_tokens=False)[-1]]
+
+    logger.debug(f"Yes token IDs ({len(yes_tokens)}): {yes_tokens}")
+    logger.debug(f"No  token IDs ({len(no_tokens)}): {no_tokens}")
     return yes_tokens, no_tokens
 
 def get_llama_toxicity_scores(model, tokenizer, texts, device, batch_size=32, total=None, save_every=None, save_path=None):
