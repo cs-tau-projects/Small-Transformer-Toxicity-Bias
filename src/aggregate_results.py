@@ -59,6 +59,7 @@ def load_all_seeds(csv_dir):
         frames.append(df)
 
     combined = pd.concat(frames, ignore_index=True)
+
     console.print(f"[green]Loaded {len(paths)} seed files "
                   f"({', '.join(os.path.basename(p) for p in paths)})[/green]")
     return combined
