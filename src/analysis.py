@@ -137,7 +137,21 @@ def run_analysis_step(data_dir, results_dir, model_name_for_errors=None):
     with open(os.path.join(data_dir, "identity_columns.json"), "r") as f:
         identity_columns = json.load(f)
 
-    # 2. Jigsaw Test Set Statistics
+    # 2. Jigsaw Split-Level Statistics (train / val / test)
+    for split_name in ["train", "val", "test"]:
+        split_path = os.path.join(data_dir, split_name)
+        if not os.path.exists(split_path):
+            console.print(f"[yellow]Warning: {split_name} split not found at {split_path}, skipping.[/yellow]")
+            continue
+        split_ds = load_from_disk(split_path) if split_name != "test" else test_ds
+        total = len(split_ds)
+        toxic = sum(split_ds["is_toxic"])
+        non_toxic = total - toxic
+        rate = f"{(toxic / total):.2%}" if total > 0 else "N/A"
+        console.print(f"  {split_name}: total={total}, toxic={toxic} ({rate}), non-toxic={non_toxic}")
+        logger.info(f"Split '{split_name}': total={total}, toxic={toxic} ({rate}), non-toxic={non_toxic}")
+
+    # 3. Jigsaw Test Set Subgroup Statistics
     console.print("Calculating Jigsaw subgroup distributions...")
     jigsaw_stats_df = _compute_jigsaw_subgroup_stats(test_ds, identity_columns)
     jigsaw_stats_path = os.path.join(results_dir, "dataset_stats.csv")
